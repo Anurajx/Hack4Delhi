@@ -83,7 +83,7 @@ interface PortalOption {
 const App: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   //const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false); //to change default theme change to true
 
   const [currentView, setCurrentView] = useState<ViewState>("home");
 
@@ -99,7 +99,7 @@ const App: React.FC = () => {
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   // Common Color/Style Definitions
-  const greenBg = "bg-emerald-500";
+  //const greenBg = "bg-emerald-500";
 
   // --- Sub-Components ---
 
@@ -1398,15 +1398,7 @@ const App: React.FC = () => {
                   className={`w-8 h-8 rounded flex items-center justify-center overflow-hidden 
                   ${isDarkMode ? "bg-white/10" : "bg-slate-100"}`}
                 >
-                  <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Emblem_of_India.svg/1200px-Emblem_of_India.svg.png"
-                    alt="Ashok Stambh"
-                    className={`w-5 h-5 object-contain ${
-                      isDarkMode
-                        ? "invert brightness-0 opacity-80"
-                        : "brightness-0 opacity-70"
-                    }`}
-                  />
+                  <img src="./public/logo.webp" alt="Logo" />
                 </div>
                 <span
                   className={`text-lg font-bold tracking-tight ${
