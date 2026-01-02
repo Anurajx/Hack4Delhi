@@ -58,7 +58,11 @@ app.get("/auth/:ID/:password", async (req, res) => {
     ID: req.params.ID,
     Def_Password: req.params.password,
   });
-  res.json(voters);
+  if (!voters || voters.length === 0) {
+    return res.json({ success: false });
+  }
+
+  res.json({ success: true, voters });
 });
 
 app.listen(process.env.PORT, () =>
