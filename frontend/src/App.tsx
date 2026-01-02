@@ -1398,7 +1398,7 @@ const App: React.FC = () => {
                   className={`w-8 h-8 rounded flex items-center justify-center overflow-hidden 
                   ${isDarkMode ? "bg-white/10" : "bg-slate-100"}`}
                 >
-                  <img src="./public/logo.webp" alt="Logo" />
+                  <img src="./logo.webp" alt="Logo" />
                 </div>
                 <span
                   className={`text-lg font-bold tracking-tight ${
