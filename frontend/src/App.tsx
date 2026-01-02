@@ -4,20 +4,20 @@ import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
 import {
   User,
   ShieldCheck,
-  ChevronRight,
-  Search,
-  Menu,
-  X,
+  // ChevronRight,
+  // Search,
+  // Menu,
+  // X,
   Vote,
-  FileText,
+  //FileText,
   Phone,
-  BarChart3,
+  //BarChart3,
   Users,
   Lock,
   Sun,
   Moon,
   ArrowRight,
-  Zap,
+  //Zap,
   Globe,
   Activity,
   ArrowLeft,
@@ -25,14 +25,14 @@ import {
   Fingerprint,
   UserPlus,
   ClipboardList,
-  FileSearch,
+  //FileSearch,
   BadgeCheck,
   MapPin,
   Calendar,
   CreditCard,
   type LucideIcon,
 } from "lucide-react";
-import { SignInButton, SignUpButton } from "@clerk/clerk-react";
+//import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 
 type ViewState =
   | "home"
@@ -82,7 +82,7 @@ interface PortalOption {
 
 const App: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  //const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
 
   const [currentView, setCurrentView] = useState<ViewState>("home");
