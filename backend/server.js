@@ -52,6 +52,15 @@ app.get("/district/:district", async (req, res) => {
   res.json(voters);
 });
 
+// Search by authentication
+app.get("/auth/:ID/:password", async (req, res) => {
+  const voters = await Voter.find({
+    ID: req.params.ID,
+    Def_Password: req.params.password,
+  });
+  res.json(voters);
+});
+
 app.listen(process.env.PORT, () =>
   console.log("Server running on port " + process.env.PORT)
 );
