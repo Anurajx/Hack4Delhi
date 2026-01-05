@@ -1,6 +1,11 @@
 # VoteChain India
 
-Unified Electoral Roll and Voter Mobility System
+<img width="1846" height="1028" alt="Screenshot 2026-01-05 174510" src="https://github.com/user-attachments/assets/4dba7fc1-4432-4313-ad05-766f58599ed8" />
+
+<img width="1830" height="1011" alt="Screenshot 2026-01-05 174436" src="https://github.com/user-attachments/assets/198e724f-0646-4830-8987-0f560069dceb" height="10"/>
+
+
+
 
 ## Overview
 
