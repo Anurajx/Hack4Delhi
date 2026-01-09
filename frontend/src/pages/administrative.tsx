@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ShieldCheck, ArrowLeft, Key, BadgeCheck, Lock } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 
+//Handles BLO login
+
 type LoginStatus = "idle" | "loading" | "success" | "error";
 
 const Administrative: React.FC = () => {
@@ -18,10 +20,10 @@ const Administrative: React.FC = () => {
     try {
       if (officerId === "admin" && password === "1234") {
         setStatus("success");
-        // TODO: Navigate to admin dashboard when ready
-        // setTimeout(() => {
-        //   navigate("/admin-dashboard");
-        // }, 1500);
+        // Navigate to BLO Portal after successful login
+        setTimeout(() => {
+          navigate("/blo-portal");
+        }, 1500);
       } else setStatus("error");
     } catch (error) {
       setStatus("error");

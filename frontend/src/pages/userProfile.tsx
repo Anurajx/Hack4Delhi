@@ -191,6 +191,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
   };
 
   // 4. Update Submission Logic
+  // 4. Update Submission Logic
   const handleSave = async () => {
     setIsLoading(true);
     setStatus({ type: "", message: "" });
@@ -224,6 +225,10 @@ const UserProfile: React.FC<UserProfileProps> = ({
           type: "success",
           message: "Citizen record updated successfully.",
         });
+        // Update initialData to match formData after successful save
+        setInitialData({ ...formData });
+        // Hide the footer bar by resetting hasChanges
+        setHasChanges(false);
       } else {
         throw new Error("Failed to update");
       }

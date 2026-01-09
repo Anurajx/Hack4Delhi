@@ -18,6 +18,7 @@ import RegistrationSuccess from "./pages/registractionSuccess";
 import UserProfile from "./pages/userProfile";
 import CitizenLogin from "./pages/citizenLogin";
 import Administrative from "./pages/administrative";
+import BLOPortal from "./pages/bloPortal";
 import { useTheme } from "./contexts/ThemeContext";
 //import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 
@@ -49,6 +50,7 @@ const App: React.FC = () => {
   const isUserProfile = location.pathname === "/user-profile";
   const isCitizenPortal = location.pathname === "/citizen-portal";
   const isAdministrative = location.pathname === "/administrative";
+  const isBloPortal = location.pathname === "/blo-portal";
 
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   //const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -76,7 +78,8 @@ const App: React.FC = () => {
       {!isRegistrationSuccess &&
         !isUserProfile &&
         !isCitizenPortal &&
-        !isAdministrative && (
+        !isAdministrative &&
+        !isBloPortal && (
           <div className="fixed inset-0 z-0 pointer-events-none">
             <div
               className={`absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:4rem_4rem] 
@@ -101,7 +104,8 @@ const App: React.FC = () => {
       {!isRegistrationSuccess &&
         !isUserProfile &&
         !isCitizenPortal &&
-        !isAdministrative && (
+        !isAdministrative &&
+        !isBloPortal && (
           <nav
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent
           ${
@@ -219,6 +223,7 @@ const App: React.FC = () => {
         <Route path="/user-profile" element={<UserProfileWrapper />} />
         <Route path="/citizen-portal" element={<CitizenLogin />} />
         <Route path="/administrative" element={<Administrative />} />
+        <Route path="/blo-portal" element={<BLOPortal />} />
         <Route
           path="/*"
           element={
@@ -493,7 +498,8 @@ const App: React.FC = () => {
       {!isRegistrationSuccess &&
         !isUserProfile &&
         !isCitizenPortal &&
-        !isAdministrative && (
+        !isAdministrative &&
+        !isBloPortal && (
           <footer
             className={`relative z-10 border-t ${
               isDarkMode
