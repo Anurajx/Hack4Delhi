@@ -17,6 +17,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+//import console from "console";
 
 // --- Types ---
 interface Voter {
@@ -34,6 +35,7 @@ interface Voter {
   Phone: string;
   "Voter ID": string;
   State: string;
+  Def_Password?: string;
 
   // Update Request Fields (Optional)
   CurrentAddress?: string;
@@ -43,6 +45,11 @@ interface Voter {
   CurrentName?: string;
   NewName?: string;
   UpdateRequestType?: string; // e.g., "Address Change", "Correction"
+
+  // For update requests from /updateFetch
+  updateField?: string; // The field that was changed (e.g., "Sex", "LastName")
+  updateValue?: string | number; // The new value for that field
+  fullVoterData?: Voter; // Full voter data fetched from /voters/:id
 }
 
 // --- Mock Data ---
@@ -172,49 +179,148 @@ export default function BLOPortal() {
 
   const fetchData = async () => {
     setLoading(true);
-    const endpoint =
-      activeTab === "registrations"
-        ? "http://localhost:5000/tempVoters"
-        : "http://localhost:5000/updateReq";
 
-    try {
-      const response = await fetch(endpoint);
-      if (!response.ok) throw new Error("Failed");
-      const result = await response.json();
-      setData(result);
-    } catch (err) {
-      console.warn(`Backend (${endpoint}) not reachable, using mock data.`);
-      // Simulate network latency for realism
-      setTimeout(() => {
-        setData(
-          activeTab === "registrations" ? MOCK_REGISTRATIONS : MOCK_UPDATES
+    if (activeTab === "registrations") {
+      // Fetch new registrations
+      try {
+        const response = await fetch(
+          "https://hack4delhi.onrender.com/tempVoters"
         );
-      }, 500);
-    } finally {
-      setLoading(false);
+        if (!response.ok) throw new Error("Failed");
+        const result = await response.json();
+        setData(result);
+      } catch (err) {
+        console.warn("Backend not reachable, using mock data.");
+        setTimeout(() => {
+          setData(MOCK_REGISTRATIONS);
+        }, 500);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Fetch update requests and then fetch full voter details for each
+      try {
+        const response = await fetch(
+          "https://hack4delhi.onrender.com/updateFetch"
+        );
+        if (!response.ok) throw new Error("Failed");
+        const updateRequests = await response.json();
+
+        // Fetch full voter details for each update request
+        const updateRequestsWithDetails = await Promise.all(
+          updateRequests.map(async (updateReq: any) => {
+            try {
+              // Fetch full voter details using the ID
+              const voterResponse = await fetch(
+                `https://hack4delhi.onrender.com/voters/${updateReq.ID}`
+              );
+              if (!voterResponse.ok) {
+                console.warn(`Failed to fetch voter ${updateReq.ID}`);
+                return null;
+              }
+              const fullVoterData = await voterResponse.json();
+
+              // Determine which field was changed and its new value
+              const changedFields = Object.keys(updateReq).filter(
+                (key) => key !== "_id" && key !== "ID" && key !== "__v"
+              );
+
+              return {
+                ...updateReq,
+                fullVoterData: fullVoterData,
+                updateField: changedFields[0] || "Unknown",
+                updateValue: updateReq[changedFields[0]],
+              };
+            } catch (err) {
+              console.error(`Error fetching voter ${updateReq.ID}:`, err);
+              return null;
+            }
+          })
+        );
+
+        // Filter out any null values (failed fetches)
+        const validUpdates = updateRequestsWithDetails.filter(
+          (item) => item !== null
+        ) as Voter[];
+
+        setData(validUpdates);
+      } catch (err) {
+        console.warn("Backend not reachable, using mock data.");
+        setTimeout(() => {
+          setData(MOCK_UPDATES);
+        }, 500);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   const handleAction = async (id: string, action: "approve" | "reject") => {
+    // Find the item before removing it (needed for update requests)
+    const item = data.find((v) => v._id === id);
+    if (!item) return;
+
     // Optimistic UI: Remove card instantly
     setData((prev) => prev.filter((v) => v._id !== id));
 
     try {
-      let url = "";
       if (activeTab === "registrations") {
-        url =
+        // For new registrations, use ID field (not _id)
+        const voterId = item.ID;
+        if (!voterId) {
+          throw new Error("Voter ID not found");
+        }
+
+        const url =
           action === "approve"
-            ? `http://localhost:5000/approve/${id}`
-            : `http://localhost:5000/reject/${id}`;
+            ? `https://hack4delhi.onrender.com/approve/${voterId}`
+            : `https://hack4delhi.onrender.com/reject/${voterId}`;
+
+        const response = await fetch(url, {
+          method: action === "approve" ? "POST" : "DELETE",
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to ${action} registration`);
+        }
       } else {
-        url =
-          action === "approve"
-            ? `http://localhost:5000/update/${id}`
-            : `http://localhost:5000/reject/${id}`;
+        // For update requests
+        if (action === "approve") {
+          // Send update request data to /update/:id where id is the voter's ID
+          const updateData: any = {};
+          if (item.updateField && item.updateValue !== undefined) {
+            updateData[item.updateField] = item.updateValue;
+          }
+
+          const url = `https://hack4delhi.onrender.com/update/${item.ID}`;
+          const response = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updateData),
+          });
+
+          if (response.ok) {
+            console.log(`Update for voter ${item.ID} approved.`);
+            // Delete the update request from UpdateVoter collection after approval
+            await fetch(
+              `https://hack4delhi.onrender.com/rejectUpdate/${item.ID}`,
+              {
+                method: "DELETE",
+              }
+            );
+          } else {
+            throw new Error("Failed to approve update");
+          }
+        } else {
+          // Reject - delete from update collection
+          const url = `https://hack4delhi.onrender.com/rejectUpdate/${item.ID}`;
+          await fetch(url, { method: "DELETE" });
+        }
       }
-      await fetch(url, { method: "POST" });
     } catch (err) {
       console.error(`Error processing ${action}:`, err);
+      // Re-add item on error
+      setData((prev) => [...prev, item]);
     }
   };
 
@@ -298,18 +404,14 @@ export default function BLOPortal() {
             >
               <span
                 className={`cursor-pointer transition-colors ${
-                  isDarkMode
-                    ? "hover:text-white"
-                    : "hover:text-gray-900"
+                  isDarkMode ? "hover:text-white" : "hover:text-gray-900"
                 }`}
               >
                 Documentation
               </span>
               <span
                 className={`cursor-pointer transition-colors ${
-                  isDarkMode
-                    ? "hover:text-white"
-                    : "hover:text-gray-900"
+                  isDarkMode ? "hover:text-white" : "hover:text-gray-900"
                 }`}
               >
                 Support
@@ -439,9 +541,7 @@ export default function BLOPortal() {
                   setActiveDistrict(null);
                 }}
                 className={
-                  isDarkMode
-                    ? "hover:text-indigo-200"
-                    : "hover:text-indigo-900"
+                  isDarkMode ? "hover:text-indigo-200" : "hover:text-indigo-900"
                 }
               >
                 <X size={12} />
@@ -546,9 +646,7 @@ const EmptyState = ({
   >
     <div
       className={`h-12 w-12 rounded-xl shadow-sm border flex items-center justify-center mb-4 transition-colors duration-700 ${
-        isDarkMode
-          ? "bg-white/10 border-white/10"
-          : "bg-white border-gray-100"
+        isDarkMode ? "bg-white/10 border-white/10" : "bg-white border-gray-100"
       }`}
     >
       <Check className="w-6 h-6 text-emerald-500" />
@@ -712,27 +810,80 @@ function UpdateCard({
   // Explicitly type the changes array
   const changes: ChangeDetail[] = [];
 
-  if (data.NewAddress)
+  // Handle new format from /updateFetch
+  if (data.updateField && data.fullVoterData) {
+    const field = data.updateField;
+    const oldValue = data.fullVoterData[field as keyof Voter];
+    const newValue = data.updateValue;
+
+    // Map field names to icons and display names
+    let icon = User;
+    let displayName = field;
+
+    switch (field) {
+      case "Phone":
+        icon = Phone;
+        break;
+      case "FirstName":
+      case "LastName":
+      case "MotherName":
+      case "FatherName":
+        icon = User;
+        displayName = field.replace(/([A-Z])/g, " $1").trim();
+        break;
+      case "State":
+      case "District ID":
+        icon = MapPin;
+        displayName = field.replace(/([A-Z])/g, " $1").trim();
+        break;
+      case "Birthday":
+        icon = Calendar;
+        displayName = "Date of Birth";
+        break;
+      case "Aadhaar":
+      case "Voter ID":
+        icon = CreditCard;
+        displayName = field.replace(/([A-Z])/g, " $1").trim();
+        break;
+      case "Sex":
+        icon = User;
+        displayName = "Gender";
+        break;
+      default:
+        icon = User;
+        displayName = field.replace(/([A-Z])/g, " $1").trim();
+    }
+
     changes.push({
-      type: "Address",
-      old: data.CurrentAddress,
-      new: data.NewAddress,
-      icon: MapPin,
+      type: displayName,
+      old: String(oldValue || "N/A"),
+      new: String(newValue || "N/A"),
+      icon: icon,
     });
-  if (data.NewPhone)
-    changes.push({
-      type: "Phone",
-      old: data.CurrentPhone,
-      new: data.NewPhone,
-      icon: Phone,
-    });
-  if (data.NewName)
-    changes.push({
-      type: "Name",
-      old: data.CurrentName,
-      new: data.NewName,
-      icon: User,
-    });
+  } else {
+    // Handle old format (for backward compatibility with mock data)
+    if (data.NewAddress)
+      changes.push({
+        type: "Address",
+        old: data.CurrentAddress,
+        new: data.NewAddress,
+        icon: MapPin,
+      });
+    if (data.NewPhone)
+      changes.push({
+        type: "Phone",
+        old: data.CurrentPhone,
+        new: data.NewPhone,
+        icon: Phone,
+      });
+    if (data.NewName)
+      changes.push({
+        type: "Name",
+        old: data.CurrentName,
+        new: data.NewName,
+        icon: User,
+      });
+  }
 
   return (
     <div
@@ -776,14 +927,24 @@ function UpdateCard({
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            {data.FirstName} {data.LastName}
+            {data.fullVoterData?.FirstName || data.FirstName}{" "}
+            {data.fullVoterData?.LastName || data.LastName}
           </h3>
           <p
             className={`text-xs mt-0.5 ${
               isDarkMode ? "text-slate-400" : "text-gray-500"
             }`}
           >
-            District {data["District ID"]} • {data.State}
+            District{" "}
+            {data.fullVoterData?.["District ID"] || data["District ID"]} •{" "}
+            {data.fullVoterData?.State || data.State}
+          </p>
+          <p
+            className={`text-xs mt-1 ${
+              isDarkMode ? "text-slate-500" : "text-gray-400"
+            }`}
+          >
+            ID: {data.ID}
           </p>
         </div>
 

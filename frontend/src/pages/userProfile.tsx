@@ -212,12 +212,20 @@ const UserProfile: React.FC<UserProfileProps> = ({
 
     try {
       const response = await fetch(
-        `https://hack4delhi.onrender.com/update/${formData.ID}`,
+        `https://hack4delhi.onrender.com/updateRequest/${formData.ID}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(changes),
         }
+
+        // const response = await fetch(
+        //   `https://hack4delhi.onrender.com/update/${formData.ID}`,
+        //   {
+        //     method: "PUT",
+        //     headers: { "Content-Type": "application/json" },
+        //     body: JSON.stringify(changes),
+        //   }
       );
 
       if (response.ok || response.status === 200) {
