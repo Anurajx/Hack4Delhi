@@ -16,7 +16,7 @@ app.use(express.json());
 
 /* -----------------------------------
    DATABASE CONNECTIONS
------------------------------------ */
+------------------------------------ */
 
 const DB = mongoose.createConnection(process.env.MONGO_URI, {
   dbName: "StateVoter",
