@@ -3,6 +3,9 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const { generateUniqueCode, IDType } = require("./UVID/generator");
 const { EPICgenerator, generateDistrictID } = require("./EPIC/generator");
+const Blockchain = require("./blockchain/Blockchain"); // or correct path
+const blockchain = new Blockchain();
+
 require("dotenv").config();
 
 const app = express();
@@ -232,8 +235,21 @@ app.put("/update/:id", async (req, res) => {
     { new: true }
   );
 
+  //BLOCKCHAIN UPDATE LOGIC HERE
+  // Fetch clean update record for blockchain
+  const eventData = await UpdateVoter.findOne({ ID: req.params.id }).lean();
+  // Send to blockchain (as array)
+  console.log("Sending update to blockchain:", eventData);
+  await blockchain.addUserUpdate([eventData]);
+
   await UpdateVoter.deleteOne({ ID: req.params.id }); //delete the update request from updateDB
   res.json(voter);
+});
+
+//get blockchain data for a user
+app.get("/blockchain/:id", (req, res) => {
+  const history = blockchain.getUserHistory(req.params.id);
+  res.json(history);
 });
 
 // Delete verified voter
