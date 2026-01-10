@@ -8,7 +8,7 @@ async function test() {
   await client.connect();
 
   const db = client.db("StateVoter");
-  const collection = db.collection("voters");
+  const collection = db.collection("tempVotersBLO");
 
   const count = await collection.countDocuments();
   const sample = await collection.findOne();
