@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const { generateUniqueCode, IDType } = require("./UVID/generator");
 const { EPICgenerator, generateDistrictID } = require("./EPIC/generator");
-const Blockchain = require("./blockchain/Blockchain"); // or correct path
+const Blockchain = require("./Blockchain/Blockchain"); // or correct path
 const blockchain = new Blockchain();
 
 require("dotenv").config();
