@@ -99,6 +99,36 @@ class Blockchain {
       }));
   }
 
+  renderUserChainASCII(ID) {
+    const blocks = this.chain.filter((b) => b.data?.ID === ID);
+
+    if (blocks.length === 0) return "No blockchain records found.";
+
+    let output = "";
+
+    blocks.forEach((b, i) => {
+      output += `
++-------------------------------+
+|  BLOCK ${b.index}
+|-------------------------------
+| User ID : ${b.data.ID}
+| Field   : ${b.data.field}
+| Old     : ${b.data.oldValue ?? "N/A"}
+| New     : ${b.data.newValue}
+| Time    : ${b.data.timestamp}
+| Hash    : ${b.hash.slice(0, 20)}...
+| Prev    : ${b.previousHash.slice(0, 20)}...
++-------------------------------+
+`;
+
+      if (i < blocks.length - 1) {
+        output += "            |\n            v\n";
+      }
+    });
+
+    return output;
+  }
+
   isChainValid() {
     for (let i = 1; i < this.chain.length; i++) {
       const curr = this.chain[i];

@@ -252,6 +252,12 @@ app.get("/blockchain/:id", (req, res) => {
   res.json(history);
 });
 
+//ASCII Blockchain data dump
+app.get("/blockchainRender/:id", (req, res) => {
+  const ascii = blockchain.renderUserChainASCII(req.params.id);
+  res.type("text/plain").send(ascii);
+});
+
 // Delete verified voter
 app.delete("/delete/:id", async (req, res) => {
   await StateVoter.deleteOne({ ID: req.params.id });
