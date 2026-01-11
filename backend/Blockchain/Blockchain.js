@@ -74,16 +74,29 @@ class Blockchain {
       "Birthday",
       "Age",
       "DistrictId",
+      "District ID",
       "State",
       "Phone",
       "VoterId",
+      "Voter ID",
       "DefPassword",
     ];
     return allowed.includes(key);
   }
 
   getUserHistory(ID) {
-    return this.chain.filter((b) => b.data.ID === ID).map((b) => b.data);
+    return this.chain
+      .filter((b) => b.data?.ID === ID)
+      .map((b) => ({
+        index: b.index,
+        blockTimestamp: b.timestamp,
+        ID: b.data.ID,
+        field: b.data.field,
+        newValue: b.data.newValue,
+        eventTimestamp: b.data.timestamp,
+        hash: b.hash,
+        previousHash: b.previousHash,
+      }));
   }
 
   isChainValid() {
