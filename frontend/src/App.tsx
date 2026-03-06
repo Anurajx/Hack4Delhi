@@ -52,6 +52,14 @@ const App: React.FC = () => {
     { value: "90%+", sub: "Adult Aadhaar Coverage" },
     { value: "400M+", sub: "Jan Dhan Bank Accounts" },
   ];
+  const ingestionLayout = [
+    { x: 18, y: 18 },
+    { x: 82, y: 18 },
+    { x: 16, y: 40 },
+    { x: 84, y: 40 },
+    { x: 22, y: 66 },
+    { x: 78, y: 66 },
+  ];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -418,7 +426,7 @@ const App: React.FC = () => {
                 </div>
                 {/* Data Ingestion Sphere */}
                 <div className="w-full max-w-7xl mx-auto mt-24">
-                  <div className="relative overflow-hidden p-2 md:p-4">
+                  <div className="relative p-2 md:p-4">
                     <div className="mb-6 text-center">
                       <h3
                         className={`text-xl md:text-2xl font-semibold tracking-tight ${
@@ -438,42 +446,90 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="data-sphere-stage">
-                      {ingestionStats.map((stat, idx) => (
-                        <div
-                          key={stat.sub}
-                          className={`data-node ${
-                            isDarkMode ? "data-node-dark" : "data-node-light"
-                          }`}
-                          style={
-                            {
-                              "--i": idx,
-                              "--total": ingestionStats.length,
-                            } as React.CSSProperties
-                          }
-                        >
-                          <span
-                            className={`text-xl md:text-2xl font-bold tracking-tight ${
-                              isDarkMode ? "text-white" : "text-slate-900"
-                            }`}
+                      <div
+                        className={`data-ambient ${
+                          isDarkMode ? "data-ambient-dark" : "data-ambient-light"
+                        }`}
+                      ></div>
+                      <div className="data-flow-grid"></div>
+                      <svg
+                        className={`data-wire-layer ${
+                          isDarkMode ? "data-wire-layer-dark" : "data-wire-layer-light"
+                        }`}
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                        aria-hidden="true"
+                      >
+                        {ingestionLayout.map((point, idx) => {
+                          const controlX = point.x < 50 ? 38 : 62;
+                          const controlY = point.y < 50 ? point.y + 8 : point.y - 8;
+                          return (
+                            <g key={`wire-${idx}`}>
+                              <path
+                                className={`data-wire-base ${
+                                  isDarkMode ? "data-wire-base-dark" : "data-wire-base-light"
+                                }`}
+                                d={`M ${point.x} ${point.y} Q ${controlX} ${controlY} 50 50`}
+                              />
+                              <path
+                                className={`data-wire-flow ${
+                                  isDarkMode ? "data-wire-flow-dark" : "data-wire-flow-light"
+                                }`}
+                                style={{ "--wire-delay": `${idx * 0.5}s` } as React.CSSProperties}
+                                d={`M ${point.x} ${point.y} Q ${controlX} ${controlY} 50 50`}
+                              />
+                            </g>
+                          );
+                        })}
+                      </svg>
+
+                      {ingestionStats.map((stat, idx) => {
+                        const point = ingestionLayout[idx];
+                        const sideClass = point.x < 50 ? "data-node-left" : "data-node-right";
+                        return (
+                          <div
+                            key={stat.sub}
+                            className={`data-node-fixed ${sideClass}`}
+                            style={
+                              {
+                                left: `${point.x}%`,
+                                top: `${point.y}%`,
+                                "--delay": `${idx * 0.45}s`,
+                              } as React.CSSProperties
+                            }
                           >
-                            {stat.value}
-                          </span>
-                          <span
-                            className={`text-[10px] md:text-xs uppercase tracking-widest font-semibold ${
-                              isDarkMode ? "text-slate-400" : "text-slate-600"
-                            }`}
-                          >
-                            {stat.sub}
-                          </span>
-                        </div>
-                      ))}
+                            <div
+                              className={`data-node ${
+                                isDarkMode ? "data-node-dark" : "data-node-light"
+                              }`}
+                            >
+                              <span
+                                className={`text-xl md:text-2xl font-bold tracking-tight ${
+                                  isDarkMode ? "text-white" : "text-slate-900"
+                                }`}
+                              >
+                                {stat.value}
+                              </span>
+                              <span
+                                className={`text-[10px] md:text-xs uppercase tracking-widest font-semibold ${
+                                  isDarkMode ? "text-slate-400" : "text-slate-600"
+                                }`}
+                              >
+                                {stat.sub}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
 
                       <div
                         className={`data-core ${
                           isDarkMode ? "data-core-dark" : "data-core-light"
                         }`}
                       >
+                        <div className="data-core-glow"></div>
                         <div className="data-core-ring"></div>
+                        <div className="data-core-scan"></div>
                         <span
                           className={`text-xs md:text-sm font-semibold tracking-[0.18em] uppercase ${
                             isDarkMode ? "text-slate-200" : "text-slate-700"
