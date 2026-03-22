@@ -17,6 +17,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import { apiUrl } from "../config/api";
 //import console from "console";
 
 // --- Types ---
@@ -177,6 +178,10 @@ export default function BLOPortal() {
   const [loading, setLoading] = useState(false);
   const [districtInput, setDistrictInput] = useState("");
   const [activeDistrict, setActiveDistrict] = useState<string | null>(null);
+  const [credentialUVID, setCredentialUVID] = useState("");
+  const [credentialType, setCredentialType] = useState("AADHAAR");
+  const [credentialValue, setCredentialValue] = useState("");
+  const [showCredentialPulse, setShowCredentialPulse] = useState(false);
 
   // --- Actions ---
 
@@ -186,9 +191,7 @@ export default function BLOPortal() {
     if (activeTab === "registrations") {
       // Fetch new registrations
       try {
-        const response = await fetch(
-          "https://hack4delhi.onrender.com/tempVoters"
-        );
+        const response = await fetch(apiUrl("/tempVoters"));
         if (!response.ok) throw new Error("Failed");
         const registrations = await response.json();
 
@@ -196,9 +199,7 @@ export default function BLOPortal() {
         const registrationsWithStatus = await Promise.all(
           registrations.map(async (reg: any) => {
             try {
-              const checkResponse = await fetch(
-                `https://hack4delhi.onrender.com/voters/${reg.ID}`
-              );
+              const checkResponse = await fetch(apiUrl(`/voters/${reg.ID}`));
               // If status is 200, ID exists; if 404, it's a new application
               const idExists = checkResponse.ok;
               return {
@@ -232,9 +233,7 @@ export default function BLOPortal() {
     } else {
       // Fetch update requests and then fetch full voter details for each
       try {
-        const response = await fetch(
-          "https://hack4delhi.onrender.com/updateFetch"
-        );
+        const response = await fetch(apiUrl("/updateFetch"));
         if (!response.ok) throw new Error("Failed");
         const updateRequests = await response.json();
 
@@ -243,9 +242,7 @@ export default function BLOPortal() {
           updateRequests.map(async (updateReq: any) => {
             try {
               // Fetch full voter details using the ID
-              const voterResponse = await fetch(
-                `https://hack4delhi.onrender.com/voters/${updateReq.ID}`
-              );
+              const voterResponse = await fetch(apiUrl(`/voters/${updateReq.ID}`));
               if (!voterResponse.ok) {
                 console.warn(`Failed to fetch voter ${updateReq.ID}`);
                 return null;
@@ -305,8 +302,8 @@ export default function BLOPortal() {
 
         const url =
           action === "approve"
-            ? `https://hack4delhi.onrender.com/approve/${voterId}`
-            : `https://hack4delhi.onrender.com/reject/${voterId}`;
+            ? apiUrl(`/approve/${voterId}`)
+            : apiUrl(`/reject/${voterId}`);
 
         const response = await fetch(url, {
           method: action === "approve" ? "POST" : "DELETE",
@@ -324,7 +321,7 @@ export default function BLOPortal() {
             updateData[item.updateField] = item.updateValue;
           }
 
-          const url = `https://hack4delhi.onrender.com/update/${item.ID}`;
+          const url = apiUrl(`/update/${item.ID}`);
           const response = await fetch(url, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -334,18 +331,15 @@ export default function BLOPortal() {
           if (response.ok) {
             console.log(`Update for voter ${item.ID} approved.`);
             // Delete the update request from UpdateVoter collection after approval
-            await fetch(
-              `https://hack4delhi.onrender.com/rejectUpdate/${item.ID}`,
-              {
-                method: "DELETE",
-              }
-            );
+            await fetch(apiUrl(`/rejectUpdate/${item.ID}`), {
+              method: "DELETE",
+            });
           } else {
             throw new Error("Failed to approve update");
           }
         } else {
           // Reject - delete from update collection
-          const url = `https://hack4delhi.onrender.com/rejectUpdate/${item.ID}`;
+          const url = apiUrl(`/rejectUpdate/${item.ID}`);
           await fetch(url, { method: "DELETE" });
         }
       }
@@ -370,6 +364,29 @@ export default function BLOPortal() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setActiveDistrict(districtInput.trim() === "" ? null : districtInput);
+  };
+
+  const handleLinkCredential = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credentialUVID || !credentialType || !credentialValue) return;
+    try {
+      await fetch(apiUrl("/add-credential"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ID: credentialUVID,
+          credentialType,
+          credentialValue,
+          details: `${credentialType} linked by officer`,
+          actor: "OFFICER",
+        }),
+      });
+      setCredentialValue("");
+      setShowCredentialPulse(true);
+      setTimeout(() => setShowCredentialPulse(false), 1300);
+    } catch (error) {
+      console.error("Credential link failed", error);
+    }
   };
 
   return (
@@ -434,6 +451,14 @@ export default function BLOPortal() {
                 isDarkMode ? "text-slate-400" : "text-gray-500"
               }`}
             >
+              <span
+                onClick={() => navigate("/fuzzy-detection")}
+                className={`cursor-pointer transition-colors ${
+                  isDarkMode ? "hover:text-white" : "hover:text-gray-900"
+                }`}
+              >
+                Fuzzy Detection
+              </span>
               <span
                 className={`cursor-pointer transition-colors ${
                   isDarkMode ? "hover:text-white" : "hover:text-gray-900"
@@ -548,6 +573,53 @@ export default function BLOPortal() {
             </button>
           </div>
         </div>
+
+        <form
+          onSubmit={handleLinkCredential}
+          className={`mb-8 rounded-xl border p-4 grid grid-cols-1 md:grid-cols-5 gap-3 ${
+            isDarkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"
+          }`}
+        >
+          <input
+            value={credentialUVID}
+            onChange={(e) => setCredentialUVID(e.target.value)}
+            placeholder="Enter UVID"
+            className="rounded-md border px-3 py-2 text-sm text-slate-900"
+            required
+          />
+          <select
+            value={credentialType}
+            onChange={(e) => setCredentialType(e.target.value)}
+            className="rounded-md border px-3 py-2 text-sm text-slate-900"
+          >
+            <option value="AADHAAR">Aadhaar</option>
+            <option value="PAN">PAN</option>
+            <option value="PASSPORT">Passport</option>
+            <option value="DRIVING_LICENSE">Driving License</option>
+          </select>
+          <input
+            value={credentialValue}
+            onChange={(e) => setCredentialValue(e.target.value)}
+            placeholder="Credential number"
+            className="rounded-md border px-3 py-2 text-sm text-slate-900"
+            required
+          />
+          <button className="rounded-md bg-indigo-600 py-2 px-3 text-sm font-semibold text-white">
+            Add Credential
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/audit-trail")}
+            className="rounded-md bg-slate-700 py-2 px-3 text-sm font-semibold text-white"
+          >
+            View Audit Trail
+          </button>
+          {showCredentialPulse && (
+            <div className="md:col-span-5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 animate-pulse">
+              Credential linked successfully.
+            </div>
+          )}
+        </form>
 
         {/* --- Active Filter Indicator --- */}
         {activeDistrict && (

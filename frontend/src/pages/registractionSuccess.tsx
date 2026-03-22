@@ -96,7 +96,7 @@ export default function RegistrationSuccess() {
             >
               Your request has been successfully queued.{" "}
               <br className="hidden md:block" />
-              once approved, your ID will be {generatedID}.
+              once approved, your UVID will be {generatedID}.
             </p>
           </div>
 

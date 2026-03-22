@@ -15,19 +15,19 @@
 
 CredChain India is a zero-trust digital identity lifecycle platform designed citizens of India. It leverages blockchain for immutable audit trails, cryptographic identifiers, and officer-verified workflows to prevent identity fraud, ensure data integrity, and enable unified management of multiple credentials (e.g., Aadhaar, PAN, Passport). this MVP demonstrates secure registration without prior government IDs, event logging for creations/updates/deletions, and tamper detection—all while maintaining privacy with off-chain encrypted storage.
 
-This project addresses real-world challenges like fragmented IDs, insider tampering, and bootstrapping for underserved users (e.g., newborns or immigrants). It's scalable for national-level systems, emphasizing cyber-resilient features like fuzzy duplicate checks and blockchain-generated unique IDs (BID).
+This project addresses real-world challenges like fragmented IDs, insider tampering, and bootstrapping for underserved users (e.g., newborns or immigrants). It's scalable for national-level systems, emphasizing cyber-resilient features like fuzzy duplicate checks and UVID-anchored identity records.
 
 # What it Does
 
 The system provides a complete end-to-end flow for managing digital identities securely:
 
-- **User Registration and Bootstrapping:** Citizens register via a portal with basic details (name, DOB, phone, parents' names, optional existing ID, and mock document uploads). No prior government ID is required— the system generates a unique BID on blockchain after verification.
+- **User Registration and Bootstrapping:** Citizens register via a portal with basic details (name, DOB, phone, parents' names, optional existing ID, and mock document uploads). No prior government ID is required - the backend generates a unique UVID after verification.
   
-- **Officer Verification:** Requests are routed to an admin dashboard where officers review documents and perform fuzzy duplicate checks (using name/DOB similarity). Approved requests trigger BID creation.
+- **Officer Verification:** Requests are routed to an admin dashboard where officers review documents and perform fuzzy duplicate checks (using name/DOB similarity). Approved requests activate the citizen UVID in the verified registry.
 
-- **BID Generation and Management:** The blockchain smart contract auto-generates a lifelong unique BID (e.g., incremental or hashed) as the identity anchor. All actions reference this BID without changing it.
+- **UVID as Identity Anchor:** The existing backend-generated UVID is the lifelong identity anchor. The mock blockchain logs immutable events against this UVID without generating any new blockchain ID.
 
-- **Multi-Credential Linking:** Users can add, update, or delete credentials (e.g., Aadhaar, PAN, Passport, Voter ID) linked to their BID. Each action is officer-verified and logged immutably on blockchain.
+- **Multi-Credential Linking:** Users/officers can add credentials (e.g., Aadhaar, PAN, Passport, Driving License, Voter ID) linked to the same UVID. Each action is logged immutably on the mock blockchain.
 
 - **Immutable Event Logging:** Blockchain records events in a structured format:
   - **TYPE:** CREATION, UPDATION, DELETION (or ADD for new credentials).
@@ -35,7 +35,7 @@ The system provides a complete end-to-end flow for managing digital identities s
   - **DETAILS:** Short description or hash of changes (e.g., "Updated PAN with new hash: 0xdef...").
   - Additional: Timestamp, actor (officer wallet), and data hash for integrity.
 
-- **Audit and Tamper Detection:** Query BID to view full event history from blockchain. Compare off-chain data hashes to on-chain for real-time tamper alerts (e.g., "Integrity violation detected!").
+- **Audit and Tamper Detection:** Query UVID to view full event history from blockchain. Compare off-chain data hashes to on-chain for real-time tamper alerts (e.g., "Integrity violation detected!").
 
 - **Threat Monitoring:** Basic anomaly detection (e.g., excessive updates flagged as suspicious).
 
@@ -48,7 +48,7 @@ This setup prevents duplicates across credentials, ensures no secret modificatio
 The architecture is layered for modularity, following zero-trust principles:
 
 - **User Interaction Layer:**
-  - Citizen Portal: React/Next.js frontend for registration, credential requests, and BID viewing (with QR code).
+  - Citizen Portal: React frontend for registration, credential requests, and UVID-linked profile access.
   - Officer Dashboard: Admin interface for approvals, reviews, and fuzzy checks.
 
 - **Verification Layer:**
@@ -57,14 +57,14 @@ The architecture is layered for modularity, following zero-trust principles:
 
 - **National Identity & Synchronization Server:**
   - Backend: Node.js/Express API handling logic, duplicate checks, and contract calls.
-  - BID Generation: Triggered post-approval.
+  - UVID Generation: Triggered in backend registration flow (existing logic retained).
 
 - **Secure Operational Databases:**
-  - Off-chain storage: Firebase/Supabase for encrypted user records and credentials, keyed by BID.
+  - Off-chain storage: MongoDB collections for user records and linked credentials, keyed by UVID.
 
 - **Blockchain Integrity Layer:**
   - Smart Contract: Solidity on Polygon Mumbai testnet.
-  - Events: Emitted for all lifecycle actions (e.g., IdentityEvent with BID, TYPE, CREDENTIAL_TYPE, DETAILS, timestamp, actor).
+  - Events: Logged for all lifecycle actions (IdentityEvent with UVID, TYPE, CREDENTIAL_TYPE, DETAILS, timestamp, actor).
   - Libraries: ethers.js for interactions.
 
 - **Threat Detection & Monitoring Engine:**
@@ -92,7 +92,7 @@ The architecture is layered for modularity, following zero-trust principles:
 
 # Usage
 
-- Citizen: Access portal, register, get BID, add credentials.
+- Citizen: Access portal, register, get UVID, add credentials, and view audit trail.
 - Officer: Login to dashboard, approve requests.
 - Demo: Run tamper simulation in monitoring console.
 

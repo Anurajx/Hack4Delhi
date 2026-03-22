@@ -15,10 +15,13 @@ import {
   Building2,
   Landmark,
   Trash2,
+  Link2,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useNavigate } from "react-router-dom";
+import { apiUrl } from "../config/api";
 
 // --- TYPE DEFINITIONS ---
 
@@ -38,8 +41,25 @@ interface UserData {
   VoterId: string;
   DefPassword: string;
   State: string;
+  LinkedCredentials?: Array<{
+    credentialType: string;
+    credentialValue: string;
+    details?: string;
+    linkedAt?: string;
+    actor?: string;
+  }>;
   // Index signature to allow dynamic access via keys
-  [key: string]: string | number;
+  [key: string]:
+    | string
+    | number
+    | Array<{
+        credentialType: string;
+        credentialValue: string;
+        details?: string;
+        linkedAt?: string;
+        actor?: string;
+      }>
+    | undefined;
 }
 
 interface InputGroupProps {
@@ -160,11 +180,34 @@ const UserProfile: React.FC<UserProfileProps> = ({
   const [status, setStatus] = useState<StatusState>({ type: "", message: "" });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [credentialType, setCredentialType] = useState("AADHAAR");
+  const [credentialValue, setCredentialValue] = useState("");
+  const [linkedCredentials, setLinkedCredentials] = useState<
+    Array<{
+      credentialType: string;
+      credentialValue: string;
+      details?: string;
+      linkedAt?: string;
+      actor?: string;
+    }>
+  >(userData.LinkedCredentials || []);
+  const [originalLinkedCredentials, setOriginalLinkedCredentials] = useState<
+    Array<{
+      credentialType: string;
+      credentialValue: string;
+      details?: string;
+      linkedAt?: string;
+      actor?: string;
+    }>
+  >(userData.LinkedCredentials || []);
+  const [showCredentialPulse, setShowCredentialPulse] = useState(false);
 
   // 2. Handle Dynamic Prop Updates
   useEffect(() => {
     setFormData(userData);
     setInitialData(userData);
+    setLinkedCredentials(userData.LinkedCredentials || []);
+    setOriginalLinkedCredentials(userData.LinkedCredentials || []);
     setHasChanges(false);
   }, [userData]);
 
@@ -201,12 +244,9 @@ const UserProfile: React.FC<UserProfileProps> = ({
     setStatus({ type: "", message: "" });
 
     try {
-      const response = await fetch(
-        `https://hack4delhi.onrender.com/delete/${formData.ID}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response = await fetch(apiUrl(`/delete/${formData.ID}`), {
+        method: "DELETE",
+      });
 
       if (response.ok || response.status === 200) {
         setStatus({
@@ -252,16 +292,14 @@ const UserProfile: React.FC<UserProfileProps> = ({
     }
 
     try {
-      const response = await fetch(
-        `https://hack4delhi.onrender.com/updateRequest/${formData.ID}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(changes),
-        }
+      const response = await fetch(apiUrl(`/updateRequest/${formData.ID}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes),
+      }
 
         // const response = await fetch(
-        //   `https://hack4delhi.onrender.com/update/${formData.ID}`,
+        //   apiUrl(`/update/${formData.ID}`),
         //   {
         //     method: "PUT",
         //     headers: { "Content-Type": "application/json" },
@@ -289,6 +327,76 @@ const UserProfile: React.FC<UserProfileProps> = ({
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddCredential = async () => {
+    if (!credentialType || !credentialValue || !formData.ID) return;
+    setStatus({ type: "", message: "" });
+    try {
+      const response = await fetch(apiUrl("/add-credential"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ID: formData.ID,
+          credentialType,
+          credentialValue,
+          details: `${credentialType} linked from citizen portal`,
+          actor: "CITIZEN",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.message || "Failed");
+      setCredentialValue("");
+      setLinkedCredentials(data.LinkedCredentials || []);
+      setOriginalLinkedCredentials(data.LinkedCredentials || []);
+      setShowCredentialPulse(true);
+      setTimeout(() => setShowCredentialPulse(false), 1400);
+      setStatus({ type: "success", message: "New credential linked successfully." });
+    } catch (error) {
+      setStatus({ type: "error", message: "Failed to link credential." });
+    }
+  };
+
+  const handleCredentialInlineEdit = (index: number, value: string) => {
+    setLinkedCredentials((prev) =>
+      prev.map((item, idx) =>
+        idx === index ? { ...item, credentialValue: value } : item,
+      ),
+    );
+  };
+
+  const handleCredentialUpdate = async (index: number) => {
+    const target = linkedCredentials[index];
+    const source = originalLinkedCredentials.find(
+      (item, idx) =>
+        idx === index && item.credentialType === target.credentialType,
+    );
+    const oldCredentialValue = source?.credentialValue;
+    if (!oldCredentialValue || !target.credentialValue) return;
+
+    try {
+      const response = await fetch(apiUrl("/update-credential"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ID: formData.ID,
+          credentialType: target.credentialType,
+          oldCredentialValue,
+          newCredentialValue: target.credentialValue,
+          details: `${target.credentialType} edited from profile`,
+          actor: "CITIZEN",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.message || "Failed to update");
+      setLinkedCredentials(data.LinkedCredentials || []);
+      setOriginalLinkedCredentials(data.LinkedCredentials || []);
+      setShowCredentialPulse(true);
+      setTimeout(() => setShowCredentialPulse(false), 1400);
+      setStatus({ type: "success", message: "Credential updated successfully." });
+    } catch (error) {
+      setStatus({ type: "error", message: "Failed to update credential." });
     }
   };
 
@@ -704,6 +812,125 @@ const UserProfile: React.FC<UserProfileProps> = ({
                   isModified={initialData.DefPassword !== formData.DefPassword}
                   isDarkMode={isDarkMode}
                 />
+              </div>
+            </div>
+
+            {/* Link New Credential */}
+            <div
+              className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${
+                isDarkMode
+                  ? "bg-[#0f0f11] border-white/10"
+                  : "bg-white border-slate-200"
+              }`}
+            >
+              <div
+                className={`px-6 py-4 border-b transition-colors duration-700 ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-100 bg-slate-50/50"
+                }`}
+              >
+                <h2
+                  className={`text-sm font-bold uppercase tracking-wide flex items-center gap-2 ${
+                    isDarkMode ? "text-blue-400" : "text-[#000080]"
+                  }`}
+                >
+                  <Link2 size={18} /> Link New Credential
+                </h2>
+              </div>
+              <div className="p-6 space-y-3">
+                <select
+                  value={credentialType}
+                  onChange={(e) => setCredentialType(e.target.value)}
+                  className="w-full rounded-md border px-3 py-2 text-sm text-slate-900"
+                >
+                  <option value="AADHAAR">Aadhaar</option>
+                  <option value="PAN">PAN</option>
+                  <option value="PASSPORT">Passport</option>
+                  <option value="DRIVING_LICENSE">Driving License</option>
+                </select>
+                <input
+                  value={credentialValue}
+                  onChange={(e) => setCredentialValue(e.target.value)}
+                  className="w-full rounded-md border px-3 py-2 text-sm text-slate-900"
+                  placeholder="Enter credential number"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCredential}
+                  className="w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white"
+                >
+                  Add Credential
+                </button>
+                {showCredentialPulse && (
+                  <div className="relative overflow-hidden rounded-md border border-emerald-300 bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
+                    <span className="absolute inset-0 animate-pulse bg-emerald-200/40" />
+                    <span className="relative inline-flex items-center gap-1">
+                      <Sparkles size={12} /> Credential linked successfully
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/audit-trail?id=${formData.ID}`)}
+                  className="w-full rounded-md bg-slate-700 py-2 text-sm font-semibold text-white"
+                >
+                  View Audit Trail
+                </button>
+              </div>
+            </div>
+
+            {/* Linked Credentials on Main Screen */}
+            <div
+              className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${
+                isDarkMode
+                  ? "bg-[#0f0f11] border-white/10"
+                  : "bg-white border-slate-200"
+              }`}
+            >
+              <div
+                className={`px-6 py-4 border-b transition-colors duration-700 ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-100 bg-slate-50/50"
+                }`}
+              >
+                <h2
+                  className={`text-sm font-bold uppercase tracking-wide flex items-center gap-2 ${
+                    isDarkMode ? "text-blue-400" : "text-[#000080]"
+                  }`}
+                >
+                  <CreditCard size={18} /> Linked Credentials
+                </h2>
+              </div>
+              <div className="p-6 space-y-3">
+                {linkedCredentials.length === 0 ? (
+                  <p className="text-xs opacity-70">No linked credentials yet.</p>
+                ) : (
+                  linkedCredentials.map((credential, index) => (
+                    <div key={`${credential.credentialType}-${index}`} className="rounded-md border p-3">
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-80">
+                        {credential.credentialType}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          value={credential.credentialValue || ""}
+                          onChange={(e) =>
+                            handleCredentialInlineEdit(index, e.target.value)
+                          }
+                          className="flex-1 rounded-md border px-3 py-2 text-sm text-slate-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleCredentialUpdate(index)}
+                          className="rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

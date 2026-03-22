@@ -1,9 +1,11 @@
 const Block = require("./block");
+const SHA256 = require("crypto-js/sha256");
 
 class Blockchain {
   constructor() {
     this.chain = [this.createGenesisBlock()];
     this.latestUserState = {}; // cache latest user values
+    this.latestOffchainHash = {};
   }
 
   createGenesisBlock() {
@@ -59,6 +61,15 @@ class Blockchain {
           }
         }
       }
+
+      this.logImmutableEvent({
+        ID: userId,
+        TYPE: "UPDATION",
+        CREDENTIAL_TYPE: "PROFILE",
+        DETAILS: "Profile fields updated",
+        actor: "OFFICER",
+        offchainHash: this.buildStateHash(this.latestUserState[userId]),
+      });
     }
   }
 
@@ -96,58 +107,113 @@ class Blockchain {
         eventTimestamp: b.data.timestamp,
         hash: b.hash,
         previousHash: b.previousHash,
+        TYPE: b.data.TYPE,
+        CREDENTIAL_TYPE: b.data.CREDENTIAL_TYPE,
+        DETAILS: b.data.DETAILS,
+        actor: b.data.actor,
+        offchainHash: b.data.offchainHash,
       }));
   }
 
-  addCitizenCreated(record) {
-    const data = {
-      ID: record.ID,
-      field: "VOTER CREATED",
-      oldValue: null,
-      newValue: {
-        IDType: record.IDType,
-        Aadhaar: record.Aadhaar,
-        FirstName: record.FirstName,
-        LastName: record.LastName,
-        MotherName: record.MotherName,
-        FatherName: record.FatherName,
-        Sex: record.Sex,
-        Birthday: record.Birthday,
-        Age: record.Age,
-        DistrictId: record.DistrictId,
-        State: record.State,
-        Phone: record.Phone,
-        VoterId: record.VoterId,
-      },
+  logImmutableEvent({
+    ID,
+    TYPE,
+    CREDENTIAL_TYPE,
+    DETAILS,
+    actor = "SYSTEM",
+    offchainHash = "",
+  }) {
+    const event = {
+      ID,
+      TYPE,
+      CREDENTIAL_TYPE,
+      DETAILS,
       timestamp: new Date().toISOString(),
+      actor,
+      offchainHash,
+      field: `${TYPE}::${CREDENTIAL_TYPE}`,
+      oldValue: null,
+      newValue: DETAILS,
     };
-
     const prev = this.getLatestBlock();
-
-    const block = new Block(this.chain.length, Date.now(), data, prev.hash);
-
+    const block = new Block(this.chain.length, Date.now(), event, prev.hash);
     this.chain.push(block);
+    if (ID && offchainHash) {
+      this.latestOffchainHash[ID] = offchainHash;
+    }
+    return block;
+  }
 
-    // initialize state cache
-    this.latestUserState[record.ID] = { ...data.newValue };
+  getAuditTrail(ID) {
+    return this.chain
+      .filter((b) => b.data?.ID === ID && b.data?.TYPE)
+      .map((b) => ({
+        index: b.index,
+        hash: b.hash,
+        previousHash: b.previousHash,
+        ...b.data,
+      }));
+  }
+
+  getOnChainHash(ID) {
+    return this.latestOffchainHash[ID] || null;
+  }
+
+  buildStateHash(payload) {
+    return SHA256(JSON.stringify(payload || {})).toString();
+  }
+
+  addCitizenCreated(record) {
+    const payload = {
+      IDType: record.IDType,
+      Aadhaar: record.Aadhaar,
+      FirstName: record.FirstName,
+      LastName: record.LastName,
+      MotherName: record.MotherName,
+      FatherName: record.FatherName,
+      Sex: record.Sex,
+      Birthday: record.Birthday,
+      Age: record.Age,
+      DistrictId: record.DistrictId,
+      State: record.State,
+      Phone: record.Phone,
+      VoterId: record.VoterId,
+      LinkedCredentials: record.LinkedCredentials || [],
+    };
+    this.latestUserState[record.ID] = { ...payload };
+    this.logImmutableEvent({
+      ID: record.ID,
+      TYPE: "CREATION",
+      CREDENTIAL_TYPE: "PROFILE",
+      DETAILS: "Citizen profile created",
+      actor: "OFFICER",
+      offchainHash: this.buildStateHash(payload),
+    });
   }
 
   addCitizenDeleted(ID) {
-    const data = {
+    this.logImmutableEvent({
       ID,
-      field: "VOTER DELETED",
-      oldValue: null,
-      newValue: "Citizen record deleted",
-      timestamp: new Date().toISOString(),
-    };
-
-    const prev = this.getLatestBlock();
-
-    const block = new Block(this.chain.length, Date.now(), data, prev.hash);
-
-    this.chain.push(block);
+      TYPE: "DELETION",
+      CREDENTIAL_TYPE: "PROFILE",
+      DETAILS: "Citizen record deleted",
+      actor: "OFFICER",
+      offchainHash: "",
+    });
 
     delete this.latestUserState[ID];
+    delete this.latestOffchainHash[ID];
+  }
+
+  addCredentialLinked({ ID, credentialType, details, actor = "CITIZEN", offchainHash }) {
+    return this.logImmutableEvent({
+      ID,
+      TYPE: "ADD_CREDENTIAL",
+      CREDENTIAL_TYPE: credentialType,
+      DETAILS: details,
+      actor,
+      offchainHash,
+    });
   }
 
   renderUserChainASCII(ID) {

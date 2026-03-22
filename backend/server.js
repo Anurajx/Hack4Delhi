@@ -1,6 +1,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const SHA256 = require("crypto-js/sha256");
+const fuzz = require("fuzzball");
 const { generateUniqueCode, IDType } = require("./UVID/generator");
 const { EPICgenerator, generateDistrictID } = require("./EPIC/generator");
 const Blockchain = require("./Blockchain/Blockchain"); // or correct path
@@ -11,6 +13,8 @@ require("dotenv").config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const buildOffchainHash = (record) => SHA256(JSON.stringify(record || {})).toString();
 
 //adhaar is actually government ID number, did't refactor to avoid confusion
 
@@ -249,6 +253,228 @@ app.put("/update/:id", async (req, res) => {
 
   await UpdateVoter.deleteOne({ ID: req.params.id }); //delete the update request from updateDB
   res.json(voter);
+});
+
+// Link additional credentials to existing UVID
+app.post("/add-credential", async (req, res) => {
+  try {
+    const { ID, credentialType, credentialValue, details, actor } = req.body;
+    if (!ID || !credentialType || !credentialValue) {
+      return res.status(400).json({
+        message: "ID, credentialType and credentialValue are required",
+      });
+    }
+
+    const voter = await StateVoter.findOne({ ID });
+    if (!voter) {
+      return res.status(404).json({ message: "Citizen/UVID not found" });
+    }
+
+    const linkedCredentials = Array.isArray(voter.LinkedCredentials)
+      ? voter.LinkedCredentials
+      : [];
+
+    const alreadyLinked = linkedCredentials.some(
+      (c) =>
+        c?.credentialType === credentialType &&
+        c?.credentialValue === credentialValue
+    );
+    if (alreadyLinked) {
+      return res.status(409).json({ message: "Credential already linked" });
+    }
+
+    const credentialEntry = {
+      credentialType,
+      credentialValue,
+      details: details || `${credentialType} linked`,
+      linkedAt: new Date().toISOString(),
+      actor: actor || "CITIZEN",
+    };
+
+    const updatedVoter = await StateVoter.findOneAndUpdate(
+      { ID },
+      { $push: { LinkedCredentials: credentialEntry } },
+      { new: true }
+    );
+
+    const offchainHash = buildOffchainHash(updatedVoter);
+    blockchain.addCredentialLinked({
+      ID,
+      credentialType,
+      details: details || `${credentialType} credential linked`,
+      actor: actor || "CITIZEN",
+      offchainHash,
+    });
+
+    res.json({
+      message: "Credential linked successfully",
+      LinkedCredentials: updatedVoter.LinkedCredentials || [],
+    });
+  } catch (error) {
+    console.error("Add credential error:", error);
+    res.status(500).json({ message: "Failed to link credential" });
+  }
+});
+
+// Update an already linked credential for existing UVID
+app.put("/update-credential", async (req, res) => {
+  try {
+    const { ID, credentialType, oldCredentialValue, newCredentialValue, details, actor } =
+      req.body;
+    if (!ID || !credentialType || !oldCredentialValue || !newCredentialValue) {
+      return res.status(400).json({
+        message:
+          "ID, credentialType, oldCredentialValue and newCredentialValue are required",
+      });
+    }
+
+    const voter = await StateVoter.findOne({ ID });
+    if (!voter) return res.status(404).json({ message: "Citizen/UVID not found" });
+
+    const linkedCredentials = Array.isArray(voter.LinkedCredentials)
+      ? voter.LinkedCredentials
+      : [];
+    const credentialIndex = linkedCredentials.findIndex(
+      (c) =>
+        c?.credentialType === credentialType &&
+        c?.credentialValue === oldCredentialValue
+    );
+    if (credentialIndex === -1) {
+      return res.status(404).json({ message: "Linked credential not found" });
+    }
+
+    linkedCredentials[credentialIndex] = {
+      ...linkedCredentials[credentialIndex],
+      credentialValue: newCredentialValue,
+      details: details || `${credentialType} credential updated`,
+      linkedAt: new Date().toISOString(),
+      actor: actor || "CITIZEN",
+    };
+
+    const updatedVoter = await StateVoter.findOneAndUpdate(
+      { ID },
+      { LinkedCredentials: linkedCredentials },
+      { new: true }
+    );
+
+    const offchainHash = buildOffchainHash(updatedVoter);
+    blockchain.logImmutableEvent({
+      ID,
+      TYPE: "UPDATION",
+      CREDENTIAL_TYPE: credentialType,
+      DETAILS: details || `${credentialType} credential updated`,
+      actor: actor || "CITIZEN",
+      offchainHash,
+    });
+
+    res.json({
+      message: "Credential updated successfully",
+      LinkedCredentials: updatedVoter.LinkedCredentials || [],
+    });
+  } catch (error) {
+    console.error("Update credential error:", error);
+    res.status(500).json({ message: "Failed to update credential" });
+  }
+});
+
+// Read immutable audit trail for a UVID
+app.get("/get-audit-trail/:id", (req, res) => {
+  const history = blockchain.getAuditTrail(req.params.id);
+  res.json(history);
+});
+
+// Backward compatible query style endpoint
+app.get("/get-audit-trail", (req, res) => {
+  const id = req.query.id;
+  if (!id) return res.status(400).json({ message: "id query param required" });
+  const history = blockchain.getAuditTrail(id);
+  res.json(history);
+});
+
+// Tamper check: compare DB snapshot hash with latest on-chain hash
+app.get("/tamper-check/:id", async (req, res) => {
+  try {
+    const voter = await StateVoter.findOne({ ID: req.params.id }).lean();
+    if (!voter) return res.status(404).json({ message: "Citizen/UVID not found" });
+
+    const offchainHash = buildOffchainHash(voter);
+    const onchainHash = blockchain.getOnChainHash(req.params.id);
+    const isTampered = !!onchainHash && offchainHash !== onchainHash;
+
+    res.json({
+      ID: req.params.id,
+      offchainHash,
+      onchainHash,
+      integrity: isTampered ? "FAILED" : "PASS",
+      tampered: isTampered,
+    });
+  } catch (error) {
+    console.error("Tamper check error:", error);
+    res.status(500).json({ message: "Tamper check failed" });
+  }
+});
+
+// Fuzzy duplicate detection page support
+app.get("/fuzzy-detection", async (req, res) => {
+  try {
+    const query = (req.query.query || "").toString().trim().toLowerCase();
+    const threshold = Number(req.query.threshold || 80);
+    if (!query) {
+      return res.status(400).json({ message: "query is required" });
+    }
+
+    const voters = await StateVoter.find().lean();
+    const tempVoters = await TempVoter.find().lean();
+    const updates = await UpdateVoter.find().lean();
+    const auditLogs = blockchain.chain.map((b) => b.data || {});
+
+    const candidates = [
+      ...voters.map((v) => ({
+        source: "StateVoter",
+        ID: v.ID,
+        text: `${v.FirstName || ""} ${v.LastName || ""} ${v.Aadhaar || ""} ${v.Phone || ""} ${v.Birthday || ""}`,
+        payload: v,
+      })),
+      ...tempVoters.map((v) => ({
+        source: "TempVoter",
+        ID: v.ID,
+        text: `${v.FirstName || ""} ${v.LastName || ""} ${v.Aadhaar || ""} ${v.Phone || ""} ${v.Birthday || ""}`,
+        payload: v,
+      })),
+      ...updates.map((v) => ({
+        source: "UpdateVoter",
+        ID: v.ID,
+        text: `${v.FirstName || ""} ${v.LastName || ""} ${v.Aadhaar || ""} ${v.Phone || ""} ${v.Birthday || ""}`,
+        payload: v,
+      })),
+      ...auditLogs.map((log) => ({
+        source: "BlockchainLog",
+        ID: log.ID || "N/A",
+        text: `${log.TYPE || ""} ${log.CREDENTIAL_TYPE || ""} ${log.DETAILS || ""} ${log.actor || ""}`,
+        payload: log,
+      })),
+    ];
+
+    const suspicious = candidates
+      .map((row) => ({
+        ...row,
+        score: fuzz.token_set_ratio(query, row.text.toLowerCase()),
+      }))
+      .filter((row) => row.score >= threshold)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 100);
+
+    res.json({
+      query,
+      threshold,
+      totalChecked: candidates.length,
+      suspiciousCount: suspicious.length,
+      suspicious,
+    });
+  } catch (error) {
+    console.error("Fuzzy detection error:", error);
+    res.status(500).json({ message: "Fuzzy detection failed" });
+  }
 });
 
 //get blockchain data for a user

@@ -8,6 +8,8 @@ import UserProfile from "./pages/userProfile";
 import CitizenLogin from "./pages/citizenLogin";
 import Administrative from "./pages/administrative";
 import BLOPortal from "./pages/bloPortal";
+import AuditTrail from "./pages/auditTrail";
+import FuzzyDetection from "./pages/fuzzyDetection";
 import { useTheme } from "./contexts/ThemeContext";
 //import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 
@@ -40,6 +42,8 @@ const App: React.FC = () => {
   const isCitizenPortal = location.pathname === "/citizen-portal";
   const isAdministrative = location.pathname === "/administrative";
   const isBloPortal = location.pathname === "/blo-portal";
+  const isAuditTrail = location.pathname === "/audit-trail";
+  const isFuzzyDetection = location.pathname === "/fuzzy-detection";
 
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   //const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -84,7 +88,9 @@ const App: React.FC = () => {
         !isUserProfile &&
         !isCitizenPortal &&
         !isAdministrative &&
-        !isBloPortal && (
+        !isBloPortal &&
+        !isAuditTrail &&
+        !isFuzzyDetection && (
           <div className="fixed inset-0 z-0 pointer-events-none">
             <div
               className={`absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:4rem_4rem] 
@@ -110,7 +116,9 @@ const App: React.FC = () => {
         !isUserProfile &&
         !isCitizenPortal &&
         !isAdministrative &&
-        !isBloPortal && (
+        !isBloPortal &&
+        !isAuditTrail &&
+        !isFuzzyDetection && (
           <nav
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent
           ${
@@ -227,6 +235,8 @@ const App: React.FC = () => {
         <Route path="/citizen-portal" element={<CitizenLogin />} />
         <Route path="/administrative" element={<Administrative />} />
         <Route path="/blo-portal" element={<BLOPortal />} />
+        <Route path="/audit-trail" element={<AuditTrail />} />
+        <Route path="/fuzzy-detection" element={<FuzzyDetection />} />
         <Route
           path="/*"
           element={
@@ -332,7 +342,7 @@ const App: React.FC = () => {
                             isDarkMode ? "text-slate-400" : "text-slate-500"
                           }`}
                         >
-                          Citizen Portal Register, view BID, and link
+                          Citizen Portal Register, view UVID, and link
                           credentials. Access Services
                         </p>
                         <div className="mt-auto w-full pt-6 border-t border-dashed border-gray-700/20">
@@ -552,7 +562,9 @@ const App: React.FC = () => {
         !isUserProfile &&
         !isCitizenPortal &&
         !isAdministrative &&
-        !isBloPortal && (
+        !isBloPortal &&
+        !isAuditTrail &&
+        !isFuzzyDetection && (
           <footer
             className={`relative z-10 border-t ${
               isDarkMode

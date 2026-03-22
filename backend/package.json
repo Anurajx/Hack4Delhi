@@ -15,6 +15,7 @@
     "crypto-js": "^4.2.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "fuzzball": "^2.2.3",
     "mongodb": "4.1",
     "mongoose": "^9.1.1",
     "uuid": "^13.0.0"

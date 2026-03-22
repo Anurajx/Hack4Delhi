@@ -15,9 +15,12 @@ import {
   Users,
   Activity,
   Globe,
+  ShieldCheck,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import { apiUrl } from "../config/api";
 
 type ViewState = "portal-landing" | "login" | "register";
 type LoginStatus = "idle" | "loading" | "success" | "error";
@@ -164,9 +167,7 @@ const LoginForm: React.FC<{
     e.preventDefault();
     setStatus("loading");
     try {
-      const response = await fetch(
-        `https://hack4delhi.onrender.com/auth/${userId}/${password}`
-      );
+      const response = await fetch(apiUrl(`/auth/${userId}/${password}`));
 
       const data = await response.json();
       console.log(data);
@@ -390,7 +391,7 @@ const RegistrationForm: React.FC<{
     setStatus("loading");
     try {
       console.log(formData);
-      const response = await fetch("https://hack4delhi.onrender.com/register", {
+      const response = await fetch(apiUrl("/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -429,7 +430,7 @@ const RegistrationForm: React.FC<{
   }`;
 
   return (
-    <div className="w-full max-w-4xl mx-auto animate-in slide-in-from-right-8 fade-in duration-500 pb-10">
+    <div className="w-full max-w-5xl mx-auto animate-in slide-in-from-right-8 fade-in duration-500 pb-10">
       <button
         onClick={() => setCurrentView("portal-landing")}
         className={`mb-8 flex items-center gap-2 text-sm font-medium transition-colors ${
@@ -449,41 +450,60 @@ const RegistrationForm: React.FC<{
             : "bg-white/90 border-slate-200"
         }`}
       >
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-blue-400"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#FF9933] via-white to-[#138808]"></div>
 
         <div className="text-center mb-10">
-          <div
-            className={`mx-auto w-12 h-12 rounded-xl flex items-center justify-center mb-4 
-            ${
-              isDarkMode
-                ? "bg-blue-500/10 text-blue-500"
-                : "bg-blue-50 text-blue-600"
-            }`}
-          >
-            <UserPlus className="w-6 h-6" />
+          <div className="mb-5">
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-widest ${
+                isDarkMode
+                  ? "border-white/10 bg-white/5 text-slate-300"
+                  : "border-slate-200 bg-slate-50 text-slate-700"
+              }`}
+            >
+              <Landmark className="w-3.5 h-3.5" />
+              Official Registration Form
+            </div>
           </div>
           <h2
             className={`text-2xl font-bold tracking-tight mb-2 ${
               isDarkMode ? "text-white" : "text-slate-900"
             }`}
           >
-            New Government ID Registration
+            New UVID Registration
           </h2>
           <p
             className={`text-sm ${
               isDarkMode ? "text-slate-400" : "text-slate-500"
             }`}
           >
-            Fill out the details below to apply for a new Government ID (Form 6)
+            Fill in verified demographic details to submit Form-6 for officer validation.
           </p>
+        </div>
+
+        <div
+          className={`mb-8 rounded-xl border px-4 py-3 text-xs md:text-sm flex items-start gap-3 ${
+            isDarkMode
+              ? "border-blue-500/20 bg-blue-500/10 text-blue-200"
+              : "border-blue-100 bg-blue-50 text-blue-900"
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            This is an official government-style onboarding form. Your UVID is generated securely by backend after approval.
+          </span>
         </div>
 
         <form
           onSubmit={handleRegister}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 gap-5"
         >
           {/* --- Personal Details --- */}
-          <div className="md:col-span-2 text-xs font-bold uppercase tracking-widest opacity-50 border-b border-white/5 pb-2 mt-2">
+          <div
+            className={`md:col-span-2 text-xs font-bold uppercase tracking-widest pb-2 mt-2 border-b ${
+              isDarkMode ? "opacity-70 border-white/10" : "opacity-80 border-slate-200"
+            }`}
+          >
             Personal Details <br />
           </div>
 
@@ -520,7 +540,7 @@ const RegistrationForm: React.FC<{
                 <option value="PAN">PAN</option>
                 <option value="Passport">Passport</option>
                 <option value="Driving_License">Driving License</option>
-                <option value="Voter_ID">Voter ID (EPIC)</option>
+                <option value="Voter_ID">UVID / Legacy Voter ID (EPIC)</option>
               </select>
               <Users className={iconClasses} />
               <div
@@ -669,7 +689,11 @@ const RegistrationForm: React.FC<{
           </div>
 
           {/* --- Location & Security --- */}
-          <div className="md:col-span-2 text-xs font-bold uppercase tracking-widest opacity-50 border-b border-white/5 pb-2 mt-4">
+          <div
+            className={`md:col-span-2 text-xs font-bold uppercase tracking-widest pb-2 mt-4 border-b ${
+              isDarkMode ? "opacity-70 border-white/10" : "opacity-80 border-slate-200"
+            }`}
+          >
             Location & Security
           </div>
 
@@ -722,7 +746,7 @@ const RegistrationForm: React.FC<{
           </div>
 
           {/* <div className="space-y-1">
-            <label className={labelClasses}>Voter ID (If Existing)</label>
+            <label className={labelClasses}>UVID (If Existing)</label>
             <div className="relative group">
               <input
                 name="voterId"
@@ -758,7 +782,7 @@ const RegistrationForm: React.FC<{
               disabled={status === "loading"}
               className={`w-full py-3 rounded-lg font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg
                 ${status === "loading" ? "opacity-70 cursor-wait" : ""}
-                bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-blue-900/20`}
+                bg-gradient-to-r from-[#000080] to-blue-700 hover:from-blue-700 hover:to-[#000080] text-white shadow-blue-900/20`}
             >
               {status === "loading" ? (
                 <span className="animate-pulse">Submitting Form...</span>
