@@ -62,7 +62,9 @@ export default function AuditTrail() {
   return (
     <div
       className={`min-h-screen pt-24 pb-12 px-6 ${
-        isDarkMode ? "bg-[#0a0a0c] text-slate-200" : "bg-slate-50 text-slate-900"
+        isDarkMode
+          ? "bg-[#0a0a0c] text-slate-200"
+          : "bg-slate-50 text-slate-900"
       }`}
     >
       <div className="max-w-5xl mx-auto">
@@ -77,7 +79,7 @@ export default function AuditTrail() {
           <input
             value={uvid}
             onChange={(e) => setUvid(e.target.value)}
-            placeholder="Enter UVID"
+            placeholder="Enter your UVID"
             className="flex-1 rounded-lg border px-4 py-2 text-sm text-slate-900"
             required
           />
@@ -104,7 +106,10 @@ export default function AuditTrail() {
         ) : (
           <div className="space-y-3">
             {events.map((event, idx) => (
-              <div key={`${event.hash}-${idx}`} className="rounded-lg border p-4">
+              <div
+                key={`${event.hash}-${idx}`}
+                className="rounded-lg border p-4"
+              >
                 <div className="text-sm font-semibold">
                   {event.TYPE} - {event.CREDENTIAL_TYPE}
                 </div>
@@ -114,7 +119,9 @@ export default function AuditTrail() {
                 </div>
               </div>
             ))}
-            {!events.length && <p className="text-sm">No events found for this UVID.</p>}
+            {!events.length && (
+              <p className="text-sm">No events found for this UVID.</p>
+            )}
           </div>
         )}
       </div>
