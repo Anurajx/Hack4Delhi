@@ -201,6 +201,8 @@ const UserProfile: React.FC<UserProfileProps> = ({
     }>
   >(userData.LinkedCredentials || []);
   const [showCredentialPulse, setShowCredentialPulse] = useState(false);
+  const [integrity, setIntegrity] = useState<"" | "PASS" | "FAILED">("");
+  const [checkingIntegrity, setCheckingIntegrity] = useState(false);
 
   // 2. Handle Dynamic Prop Updates
   useEffect(() => {
@@ -400,6 +402,20 @@ const UserProfile: React.FC<UserProfileProps> = ({
     }
   };
 
+  const handleIntegrityCheck = async () => {
+    if (!formData.ID) return;
+    setCheckingIntegrity(true);
+    try {
+      const response = await fetch(apiUrl(`/tamper-check/${formData.ID}`));
+      const data = await response.json();
+      setIntegrity((data?.integrity as "PASS" | "FAILED") || "");
+    } catch {
+      setIntegrity("FAILED");
+    } finally {
+      setCheckingIntegrity(false);
+    }
+  };
+
   return (
     <div
       className={`min-h-screen font-sans transition-colors duration-700 ease-in-out ${
@@ -545,7 +561,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
             </div>
           </div>
         </div>
-        {/* Status Notification */}
+        {/* Status Notification + Integrity Badge */}
         {status.message && (
           <div
             className={`rounded-md border p-4 flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-1 ${
@@ -566,8 +582,136 @@ const UserProfile: React.FC<UserProfileProps> = ({
             <span className="font-medium text-sm">{status.message}</span>
           </div>
         )}
+        {integrity && (
+          <div
+            className={`rounded-md border p-3 flex items-center gap-3 text-xs font-semibold ${
+              integrity === "PASS"
+                ? isDarkMode
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
+                  : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : isDarkMode
+                ? "bg-red-500/10 border-red-500/20 text-red-300"
+                : "bg-red-50 border-red-200 text-red-800"
+            }`}
+          >
+            Integrity: {integrity}
+          </div>
+        )}
         {/* Form Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Prominent Linked Credentials + Add Form */}
+          <div className="lg:col-span-3">
+            <div
+              className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${
+                isDarkMode ? "bg-[#0f0f11] border-white/10" : "bg-white border-slate-200"
+              }`}
+            >
+              <div
+                className={`px-6 py-4 border-b flex items-center justify-between transition-colors duration-700 ${
+                  isDarkMode ? "border-white/10 bg-white/5" : "border-slate-100 bg-slate-50/50"
+                }`}
+              >
+                <h2
+                  className={`text-sm font-bold uppercase tracking-wide flex items-center gap-2 ${
+                    isDarkMode ? "text-blue-400" : "text-[#000080]"
+                  }`}
+                >
+                  <CreditCard size={18} /> Linked Credentials
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleIntegrityCheck}
+                    disabled={checkingIntegrity}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                      isDarkMode
+                        ? "bg-white/10 hover:bg-white/15 text-slate-200"
+                        : "bg-slate-900 hover:bg-slate-800 text-white"
+                    }`}
+                  >
+                    {checkingIntegrity ? "Checking..." : "Check Integrity"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/audit-trail?id=${formData.ID}`)}
+                    className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white"
+                  >
+                    View Audit Trail
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 rounded-md border p-4 space-y-3">
+                  <div className="text-xs font-bold uppercase tracking-wider opacity-80 flex items-center gap-2">
+                    <Link2 size={14} /> Link New Credential
+                  </div>
+                  <select
+                    value={credentialType}
+                    onChange={(e) => setCredentialType(e.target.value)}
+                    className="w-full rounded-md border px-3 py-2 text-sm text-slate-900"
+                  >
+                    <option value="AADHAAR">Aadhaar</option>
+                    <option value="PAN">PAN</option>
+                    <option value="PASSPORT">Passport</option>
+                    <option value="DRIVING_LICENSE">Driving License</option>
+                  </select>
+                  <input
+                    value={credentialValue}
+                    onChange={(e) => setCredentialValue(e.target.value)}
+                    className="w-full rounded-md border px-3 py-2 text-sm text-slate-900"
+                    placeholder="Enter credential number"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCredential}
+                    className="w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white"
+                  >
+                    Add Credential
+                  </button>
+                  {showCredentialPulse && (
+                    <div className="relative overflow-hidden rounded-md border border-emerald-300 bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
+                      <span className="absolute inset-0 animate-pulse bg-emerald-200/40" />
+                      <span className="relative inline-flex items-center gap-1">
+                        <Sparkles size={12} /> Credential linked successfully
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="lg:col-span-2 space-y-3">
+                  {linkedCredentials.length === 0 ? (
+                    <p className="text-xs opacity-70">No linked credentials yet.</p>
+                  ) : (
+                    linkedCredentials.map((credential, index) => (
+                      <div
+                        key={`${credential.credentialType}-${index}`}
+                        className="rounded-md border p-3"
+                      >
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-80">
+                          {credential.credentialType}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            value={credential.credentialValue || ""}
+                            onChange={(e) =>
+                              handleCredentialInlineEdit(index, e.target.value)
+                            }
+                            className="flex-1 rounded-md border px-3 py-2 text-sm text-slate-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleCredentialUpdate(index)}
+                            className="rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
           {/* Main Column */}
           <div className="lg:col-span-2 space-y-8">
             {/* Personal Details */}
@@ -815,124 +959,6 @@ const UserProfile: React.FC<UserProfileProps> = ({
               </div>
             </div>
 
-            {/* Link New Credential */}
-            <div
-              className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${
-                isDarkMode
-                  ? "bg-[#0f0f11] border-white/10"
-                  : "bg-white border-slate-200"
-              }`}
-            >
-              <div
-                className={`px-6 py-4 border-b transition-colors duration-700 ${
-                  isDarkMode
-                    ? "border-white/10 bg-white/5"
-                    : "border-slate-100 bg-slate-50/50"
-                }`}
-              >
-                <h2
-                  className={`text-sm font-bold uppercase tracking-wide flex items-center gap-2 ${
-                    isDarkMode ? "text-blue-400" : "text-[#000080]"
-                  }`}
-                >
-                  <Link2 size={18} /> Link New Credential
-                </h2>
-              </div>
-              <div className="p-6 space-y-3">
-                <select
-                  value={credentialType}
-                  onChange={(e) => setCredentialType(e.target.value)}
-                  className="w-full rounded-md border px-3 py-2 text-sm text-slate-900"
-                >
-                  <option value="AADHAAR">Aadhaar</option>
-                  <option value="PAN">PAN</option>
-                  <option value="PASSPORT">Passport</option>
-                  <option value="DRIVING_LICENSE">Driving License</option>
-                </select>
-                <input
-                  value={credentialValue}
-                  onChange={(e) => setCredentialValue(e.target.value)}
-                  className="w-full rounded-md border px-3 py-2 text-sm text-slate-900"
-                  placeholder="Enter credential number"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCredential}
-                  className="w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white"
-                >
-                  Add Credential
-                </button>
-                {showCredentialPulse && (
-                  <div className="relative overflow-hidden rounded-md border border-emerald-300 bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
-                    <span className="absolute inset-0 animate-pulse bg-emerald-200/40" />
-                    <span className="relative inline-flex items-center gap-1">
-                      <Sparkles size={12} /> Credential linked successfully
-                    </span>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => navigate(`/audit-trail?id=${formData.ID}`)}
-                  className="w-full rounded-md bg-slate-700 py-2 text-sm font-semibold text-white"
-                >
-                  View Audit Trail
-                </button>
-              </div>
-            </div>
-
-            {/* Linked Credentials on Main Screen */}
-            <div
-              className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${
-                isDarkMode
-                  ? "bg-[#0f0f11] border-white/10"
-                  : "bg-white border-slate-200"
-              }`}
-            >
-              <div
-                className={`px-6 py-4 border-b transition-colors duration-700 ${
-                  isDarkMode
-                    ? "border-white/10 bg-white/5"
-                    : "border-slate-100 bg-slate-50/50"
-                }`}
-              >
-                <h2
-                  className={`text-sm font-bold uppercase tracking-wide flex items-center gap-2 ${
-                    isDarkMode ? "text-blue-400" : "text-[#000080]"
-                  }`}
-                >
-                  <CreditCard size={18} /> Linked Credentials
-                </h2>
-              </div>
-              <div className="p-6 space-y-3">
-                {linkedCredentials.length === 0 ? (
-                  <p className="text-xs opacity-70">No linked credentials yet.</p>
-                ) : (
-                  linkedCredentials.map((credential, index) => (
-                    <div key={`${credential.credentialType}-${index}`} className="rounded-md border p-3">
-                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-80">
-                        {credential.credentialType}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          value={credential.credentialValue || ""}
-                          onChange={(e) =>
-                            handleCredentialInlineEdit(index, e.target.value)
-                          }
-                          className="flex-1 rounded-md border px-3 py-2 text-sm text-slate-900"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleCredentialUpdate(index)}
-                          className="rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
           </div>
         </div>
         <div className="h-24"></div> {/* Spacer for fixed footer */}

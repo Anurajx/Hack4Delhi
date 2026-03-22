@@ -414,6 +414,31 @@ app.get("/tamper-check/:id", async (req, res) => {
   }
 });
 
+// Tamper simulation: mutate DB without updating blockchain to test integrity detection
+app.post("/tamper-simulate/:id", async (req, res) => {
+  try {
+    const requestedId = (req.params.id || "").trim();
+    const voter = await StateVoter.findOne({
+      ID: { $regex: `^${requestedId}$`, $options: "i" },
+    });
+    if (!voter) return res.status(404).json({ message: "Citizen/UVID not found" });
+
+    // Minimal, visible mutation: toggle a suffix on Phone field or touch a misc field
+    const currentPhone = voter.Phone || "";
+    const mutatedPhone = currentPhone.endsWith("-tampered")
+      ? currentPhone.replace(/-tampered$/, "")
+      : `${currentPhone}-tampered`;
+
+    voter.Phone = mutatedPhone;
+    await voter.save();
+
+    // IMPORTANT: Do not log to blockchain here (simulates out-of-band modification)
+    res.json({ message: "Record tampered for testing", ID: req.params.id, Phone: voter.Phone });
+  } catch (error) {
+    console.error("Tamper simulate error:", error);
+    res.status(500).json({ message: "Failed to tamper record" });
+  }
+});
 // Fuzzy duplicate detection page support
 app.get("/fuzzy-detection", async (req, res) => {
   try {

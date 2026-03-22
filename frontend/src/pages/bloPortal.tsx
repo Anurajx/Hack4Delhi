@@ -182,6 +182,8 @@ export default function BLOPortal() {
   const [credentialType, setCredentialType] = useState("AADHAAR");
   const [credentialValue, setCredentialValue] = useState("");
   const [showCredentialPulse, setShowCredentialPulse] = useState(false);
+  const [auditTrail, setAuditTrail] = useState<any[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   // --- Actions ---
 
@@ -386,6 +388,21 @@ export default function BLOPortal() {
       setTimeout(() => setShowCredentialPulse(false), 1300);
     } catch (error) {
       console.error("Credential link failed", error);
+    }
+  };
+
+  const handleFetchAuditTrail = async () => {
+    const normalizedUvid = credentialUVID.trim();
+    if (!normalizedUvid) return;
+    setAuditLoading(true);
+    try {
+      const response = await fetch(apiUrl(`/get-audit-trail/${normalizedUvid}`));
+      const data = await response.json();
+      setAuditTrail(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setAuditTrail([]);
+    } finally {
+      setAuditLoading(false);
     }
   };
 
@@ -609,7 +626,7 @@ export default function BLOPortal() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/audit-trail")}
+            onClick={handleFetchAuditTrail}
             className="rounded-md bg-slate-700 py-2 px-3 text-sm font-semibold text-white"
           >
             View Audit Trail
@@ -620,6 +637,34 @@ export default function BLOPortal() {
             </div>
           )}
         </form>
+        <div
+          className={`mb-8 rounded-xl border p-4 ${
+            isDarkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"
+          }`}
+        >
+          <div className="text-sm font-semibold mb-3">Audit Trail (Inline)</div>
+          {auditLoading ? (
+            <div className="text-xs opacity-70">Loading audit trail...</div>
+          ) : auditTrail.length === 0 ? (
+            <div className="text-xs opacity-70">
+              Enter UVID above and click "View Audit Trail" to load events.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-auto">
+              {auditTrail.map((event, idx) => (
+                <div key={`${event.hash || idx}`} className="rounded-md border p-2 text-xs">
+                  <div className="font-semibold">
+                    {event.TYPE} - {event.CREDENTIAL_TYPE}
+                  </div>
+                  <div className="opacity-80">{event.DETAILS}</div>
+                  <div className="opacity-70">
+                    {event.timestamp} | Actor: {event.actor}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* --- Active Filter Indicator --- */}
         {activeDistrict && (

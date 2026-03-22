@@ -430,7 +430,7 @@ const RegistrationForm: React.FC<{
   }`;
 
   return (
-    <div className="w-full max-w-5xl mx-auto animate-in slide-in-from-right-8 fade-in duration-500 pb-10">
+    <div className="w-full mx-auto max-w-none animate-in slide-in-from-right-8 fade-in duration-500 pb-0">
       <button
         onClick={() => setCurrentView("portal-landing")}
         className={`mb-8 flex items-center gap-2 text-sm font-medium transition-colors ${
@@ -442,15 +442,8 @@ const RegistrationForm: React.FC<{
         <ArrowLeft className="w-4 h-4" /> Back to Services
       </button>
 
-      <div
-        className={`rounded-2xl border p-8 md:p-10 shadow-2xl backdrop-blur-xl relative overflow-hidden
-        ${
-          isDarkMode
-            ? "bg-[#0f0f11]/90 border-white/10"
-            : "bg-white/90 border-slate-200"
-        }`}
-      >
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#FF9933] via-white to-[#138808]"></div>
+      <div className={`relative overflow-visible px-4 sm:px-8 md:px-12 lg:px-16 py-8 md:py-10 ${isDarkMode ? "" : ""}`}>
+        <div className="w-full h-1 bg-gradient-to-r from-[#FF9933] via-white to-[#138808] mb-6"></div>
 
         <div className="text-center mb-10">
           <div className="mb-5">
@@ -494,10 +487,7 @@ const RegistrationForm: React.FC<{
           </span>
         </div>
 
-        <form
-          onSubmit={handleRegister}
-          className="grid grid-cols-1 md:grid-cols-2 gap-5"
-        >
+        <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
           {/* --- Personal Details --- */}
           <div
             className={`md:col-span-2 text-xs font-bold uppercase tracking-widest pb-2 mt-2 border-b ${
@@ -689,11 +679,7 @@ const RegistrationForm: React.FC<{
           </div>
 
           {/* --- Location & Security --- */}
-          <div
-            className={`md:col-span-2 text-xs font-bold uppercase tracking-widest pb-2 mt-4 border-b ${
-              isDarkMode ? "opacity-70 border-white/10" : "opacity-80 border-slate-200"
-            }`}
-          >
+          <div className={`md:col-span-2 text-xs font-bold uppercase tracking-widest pb-2 mt-4 border-b ${isDarkMode ? "opacity-70 border-white/10" : "opacity-80 border-slate-200"}`}>
             Location & Security
           </div>
 
@@ -776,7 +762,7 @@ const RegistrationForm: React.FC<{
             </div>
           </div>
 
-          <div className="md:col-span-2 pt-6">
+          <div className="md:col-span-2 pt-8">
             <button
               type="submit"
               disabled={status === "loading"}

@@ -26,6 +26,7 @@ class Blockchain {
     for (const record of records) {
       const userId = record.ID;
       if (!userId) continue;
+      const changedFields = [];
 
       // First time user appears
       if (!this.latestUserState[userId]) {
@@ -58,6 +59,7 @@ class Blockchain {
 
             // Update cache
             this.latestUserState[userId][key] = newValue;
+            changedFields.push(key);
           }
         }
       }
@@ -66,7 +68,9 @@ class Blockchain {
         ID: userId,
         TYPE: "UPDATION",
         CREDENTIAL_TYPE: "PROFILE",
-        DETAILS: "Profile fields updated",
+        DETAILS: changedFields.length
+          ? `Updated fields: ${changedFields.join(", ")}`
+          : "Profile fields updated",
         actor: "OFFICER",
         offchainHash: this.buildStateHash(this.latestUserState[userId]),
       });
