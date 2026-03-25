@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { apiUrl } from "../config/api";
 
@@ -22,12 +22,10 @@ export default function AuditTrail() {
   const [uvid, setUvid] = useState(initialId);
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tamperResult, setTamperResult] = useState<string>("");
 
   const fetchAuditTrail = async (id: string) => {
     if (!id) return;
     setLoading(true);
-    setTamperResult("");
     try {
       const response = await fetch(apiUrl(`/get-audit-trail/${id}`));
       const data = await response.json();
@@ -36,17 +34,6 @@ export default function AuditTrail() {
       setEvents([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const runTamperCheck = async () => {
-    if (!uvid) return;
-    try {
-      const response = await fetch(apiUrl(`/tamper-check/${uvid}`));
-      const data = await response.json();
-      setTamperResult(data?.integrity || "UNKNOWN");
-    } catch (err) {
-      setTamperResult("FAILED");
     }
   };
 
@@ -87,20 +74,7 @@ export default function AuditTrail() {
             <Search className="w-4 h-4 inline mr-1" />
             Search
           </button>
-          <button
-            type="button"
-            onClick={runTamperCheck}
-            className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm"
-          >
-            <ShieldCheck className="w-4 h-4 inline mr-1" />
-            Tamper Check
-          </button>
         </form>
-        {tamperResult && (
-          <div className="mb-4 text-sm font-semibold">
-            Integrity Status: {tamperResult}
-          </div>
-        )}
         {loading ? (
           <p className="text-sm">Loading audit trail...</p>
         ) : (
