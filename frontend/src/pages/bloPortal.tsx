@@ -224,7 +224,13 @@ export default function BLOPortal() {
     if (activeTab === "registrations") {
       // Fetch new registrations
       try {
+<<<<<<< HEAD
         const response = await fetch(apiUrl("/tempVoters"));
+=======
+        const response = await fetch(
+          apiUrl("/tempVoters")
+        );
+>>>>>>> b40e14c (added heatmap)
         if (!response.ok) throw new Error("Failed");
         const registrations = await response.json();
 
@@ -232,7 +238,13 @@ export default function BLOPortal() {
         const registrationsWithStatus = await Promise.all(
           registrations.map(async (reg: any) => {
             try {
+<<<<<<< HEAD
               const checkResponse = await fetch(apiUrl(`/voters/${reg.ID}`));
+=======
+              const checkResponse = await fetch(
+                apiUrl(`/voters/${reg.ID}`)
+              );
+>>>>>>> b40e14c (added heatmap)
               // If status is 200, ID exists; if 404, it's a new application
               const idExists = checkResponse.ok;
               return {
@@ -266,7 +278,13 @@ export default function BLOPortal() {
     } else {
       // Fetch update requests and then fetch full voter details for each
       try {
+<<<<<<< HEAD
         const response = await fetch(apiUrl("/updateFetch"));
+=======
+        const response = await fetch(
+          apiUrl("/updateFetch")
+        );
+>>>>>>> b40e14c (added heatmap)
         if (!response.ok) throw new Error("Failed");
         const updateRequests = await response.json();
 
@@ -275,7 +293,13 @@ export default function BLOPortal() {
           updateRequests.map(async (updateReq: any) => {
             try {
               // Fetch full voter details using the ID
+<<<<<<< HEAD
               const voterResponse = await fetch(apiUrl(`/voters/${updateReq.ID}`));
+=======
+              const voterResponse = await fetch(
+                apiUrl(`/voters/${updateReq.ID}`)
+              );
+>>>>>>> b40e14c (added heatmap)
               if (!voterResponse.ok) {
                 console.warn(`Failed to fetch voter ${updateReq.ID}`);
                 return null;
@@ -364,9 +388,18 @@ export default function BLOPortal() {
           if (response.ok) {
             console.log(`Update for voter ${item.ID} approved.`);
             // Delete the update request from UpdateVoter collection after approval
+<<<<<<< HEAD
             await fetch(apiUrl(`/rejectUpdate/${item.ID}`), {
               method: "DELETE",
             });
+=======
+            await fetch(
+              apiUrl(`/rejectUpdate/${item.ID}`),
+              {
+                method: "DELETE",
+              }
+            );
+>>>>>>> b40e14c (added heatmap)
           } else {
             throw new Error("Failed to approve update");
           }
@@ -543,12 +576,20 @@ export default function BLOPortal() {
               }`}
             >
               <span
+<<<<<<< HEAD
                 onClick={() => navigate("/fuzzy-detection")}
+=======
+                onClick={() => navigate('/regional-heatmap')}
+>>>>>>> b40e14c (added heatmap)
                 className={`cursor-pointer transition-colors ${
                   isDarkMode ? "hover:text-white" : "hover:text-gray-900"
                 }`}
               >
+<<<<<<< HEAD
                 Fuzzy Detection
+=======
+                Regional Heatmap
+>>>>>>> b40e14c (added heatmap)
               </span>
               <span
                 className={`cursor-pointer transition-colors ${

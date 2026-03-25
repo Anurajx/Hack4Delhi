@@ -13,6 +13,7 @@
     "@clerk/clerk-react": "^5.59.2",
     "@tailwindcss/vite": "^4.1.18",
     "@types/d3-geo": "^3.1.0",
+<<<<<<< HEAD
     "@types/prop-types": "^15.7.15",
     "@types/react-router-dom": "^5.3.3",
     "@types/react-simple-maps": "^3.0.6",
@@ -23,9 +24,20 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.11.0",
     "react-simple-maps": "^3.0.0"
+=======
+    "@types/react-router-dom": "^5.3.3",
+    "d3-geo": "^3.1.1",
+    "lucide-react": "^0.562.0",
+    "mapbox-gl": "^3.20.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.11.0",
+    "recharts": "^3.8.0"
+>>>>>>> b40e14c (added heatmap)
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^24.10.6",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",

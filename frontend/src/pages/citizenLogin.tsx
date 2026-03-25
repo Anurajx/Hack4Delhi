@@ -167,7 +167,13 @@ const LoginForm: React.FC<{
     e.preventDefault();
     setStatus("loading");
     try {
+<<<<<<< HEAD
       const response = await fetch(apiUrl(`/auth/${userId}/${password}`));
+=======
+      const response = await fetch(
+        apiUrl(`/auth/${userId}/${password}`)
+      );
+>>>>>>> b40e14c (added heatmap)
 
       const data = await response.json();
       console.log(data);

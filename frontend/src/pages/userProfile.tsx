@@ -246,9 +246,18 @@ const UserProfile: React.FC<UserProfileProps> = ({
     setStatus({ type: "", message: "" });
 
     try {
+<<<<<<< HEAD
       const response = await fetch(apiUrl(`/delete/${formData.ID}`), {
         method: "DELETE",
       });
+=======
+      const response = await fetch(
+        apiUrl(`/delete/${formData.ID}`),
+        {
+          method: "DELETE",
+        }
+      );
+>>>>>>> b40e14c (added heatmap)
 
       if (response.ok || response.status === 200) {
         setStatus({
@@ -294,11 +303,21 @@ const UserProfile: React.FC<UserProfileProps> = ({
     }
 
     try {
+<<<<<<< HEAD
       const response = await fetch(apiUrl(`/updateRequest/${formData.ID}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(changes),
       }
+=======
+      const response = await fetch(
+        apiUrl(`/updateRequest/${formData.ID}`),
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(changes),
+        }
+>>>>>>> b40e14c (added heatmap)
 
         // const response = await fetch(
         //   apiUrl(`/update/${formData.ID}`),
