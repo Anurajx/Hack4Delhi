@@ -11,7 +11,7 @@
 
 
 
-# Overview
+## Overview
 
 CredChain India is a zero-trust digital identity lifecycle platform designed citizens of India. It leverages blockchain for immutable audit trails, cryptographic identifiers, and officer-verified workflows to prevent identity fraud, ensure data integrity, and enable unified management of multiple credentials (e.g., Aadhaar, PAN, Passport). this MVP demonstrates secure registration without prior government IDs, event logging for creations/updates/deletions, and tamper detection—all while maintaining privacy with off-chain encrypted storage.
 
