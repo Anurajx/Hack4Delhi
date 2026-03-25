@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Activity, Copy, MapPin, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
+// import { useNavigate } from "react-router-dom";
+import { Users, Activity, Copy, MapPin, TrendingUp, AlertTriangle } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { apiUrl } from "../config/api";
 
@@ -13,7 +13,7 @@ interface StateStats {
 
 const IndiaMapPage: React.FC = () => {
   const { isDarkMode } = useTheme();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [stats, setStats] = useState<StateStats[]>([]);
   const [hoveredState, setHoveredState] = useState<StateStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,9 +50,9 @@ const IndiaMapPage: React.FC = () => {
   const getHeatColor = (value: number): string => {
     const ratio = value / maxAdditions;
     if (ratio > 0.85) return isDarkMode ? "bg-orange-500" : "bg-orange-500";
-    if (ratio > 0.6)  return isDarkMode ? "bg-amber-500"  : "bg-amber-500";
+    if (ratio > 0.6) return isDarkMode ? "bg-amber-500" : "bg-amber-500";
     if (ratio > 0.35) return isDarkMode ? "bg-yellow-400" : "bg-yellow-400";
-    if (ratio > 0.1)  return isDarkMode ? "bg-blue-500"   : "bg-blue-500";
+    if (ratio > 0.1) return isDarkMode ? "bg-blue-500" : "bg-blue-500";
     return isDarkMode ? "bg-slate-600" : "bg-slate-300";
   };
 
@@ -161,11 +161,10 @@ const IndiaMapPage: React.FC = () => {
                           key={s.State}
                           onMouseEnter={() => setHoveredState(s)}
                           onMouseLeave={() => setHoveredState(null)}
-                          className={`border-b transition-colors cursor-default ${divider} ${
-                            isHovered
-                              ? isDarkMode ? "bg-white/[0.04]" : "bg-orange-50/60"
-                              : isDarkMode ? "hover:bg-white/[0.025]" : "hover:bg-slate-50"
-                          }`}
+                          className={`border-b transition-colors cursor-default ${divider} ${isHovered
+                            ? isDarkMode ? "bg-white/[0.04]" : "bg-orange-50/60"
+                            : isDarkMode ? "hover:bg-white/[0.025]" : "hover:bg-slate-50"
+                            }`}
                         >
                           {/* Rank */}
                           <td className="py-3 px-4">
@@ -186,11 +185,10 @@ const IndiaMapPage: React.FC = () => {
                             {s.updations.toLocaleString()}
                           </td>
                           {/* Duplications */}
-                          <td className={`py-3 px-4 text-right font-mono tabular-nums ${
-                            s.duplications > 0
-                              ? isDarkMode ? "text-red-400 font-semibold" : "text-red-600 font-semibold"
-                              : muted
-                          }`}>
+                          <td className={`py-3 px-4 text-right font-mono tabular-nums ${s.duplications > 0
+                            ? isDarkMode ? "text-red-400 font-semibold" : "text-red-600 font-semibold"
+                            : muted
+                            }`}>
                             {s.duplications > 0 ? s.duplications.toLocaleString() : "—"}
                           </td>
                           {/* Heat bar */}
