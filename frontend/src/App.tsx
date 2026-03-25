@@ -12,7 +12,7 @@ import AuditTrail from "./pages/auditTrail";
 import FuzzyDetection from "./pages/fuzzyDetection";
 import IndiaMapPage from "./pages/indiaMapPage";
 import RegionalHeatmap from "./pages/RegionalHeatmap";
-import CitizenCardPage from "./pages/CitizenCardPage";
+// import CitizenCardPage from "./pages/CitizenCardPage";
 import { useTheme } from "./contexts/ThemeContext";
 //import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 
