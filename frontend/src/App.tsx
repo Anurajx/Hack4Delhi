@@ -13,6 +13,7 @@ import FuzzyDetection from "./pages/fuzzyDetection";
 import IndiaMapPage from "./pages/indiaMapPage";
 import RegionalHeatmap from "./pages/RegionalHeatmap";
 import CitizenCardPage from "./pages/CitizenCardPage";
+import EmergencyAccess from "./pages/emergencyAccess";
 import { useTheme } from "./contexts/ThemeContext";
 //import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 
@@ -50,6 +51,7 @@ const App: React.FC = () => {
   const isIndiaMap = location.pathname === "/india-map";
   const isRegionalHeatmap = location.pathname === "/regional-heatmap";
   const isCitizenCard = location.pathname.startsWith("/citizen-card");
+  const isEmergencyAccess = location.pathname.startsWith("/emergency/");
 
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   //const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -98,7 +100,8 @@ const App: React.FC = () => {
         !isFuzzyDetection &&
         !isIndiaMap &&
         !isRegionalHeatmap &&
-        !isCitizenCard && (
+        !isCitizenCard &&
+        !isEmergencyAccess && (
           <div className="fixed inset-0 z-0 pointer-events-none">
             <div
               className={`absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:4rem_4rem] 
@@ -119,6 +122,7 @@ const App: React.FC = () => {
 
       {/* --- HEADER --- */}
       {!isRegistrationSuccess &&
+        !isEmergencyAccess &&
         // !isUserProfile &&
         // !isCitizenPortal &&
         // !isAdministrative &&
@@ -252,7 +256,7 @@ const App: React.FC = () => {
         )}
 
       {/* --- MAIN CONTENT AREA --- */}
-      <div className="flex-grow pt-24">
+      <div className={`flex-grow ${isEmergencyAccess ? "pt-0" : "pt-24"}`}>
         <Routes>
           <Route path="/registration-success" element={<RegistrationSuccess />} />
           <Route path="/user-profile" element={<UserProfileWrapper />} />
@@ -264,6 +268,7 @@ const App: React.FC = () => {
           <Route path="/india-map" element={<IndiaMapPage />} />
           <Route path="/regional-heatmap" element={<RegionalHeatmap />} />
           <Route path="/citizen-card/:id" element={<CitizenCardPage />} />
+          <Route path="/emergency/:token" element={<EmergencyAccess />} />
           <Route
             path="/*"
             element={

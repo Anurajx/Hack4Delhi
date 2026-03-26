@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
+import { apiUrl } from "../config/api";
 
 interface UserData {
   _id: string;
@@ -68,9 +69,10 @@ export const generateIdCardPDF = async (
   userData: UserData,
   baseUrl: string
 ): Promise<void> => {
-  // Card dimensions (ID card ratio roughly A6 landscape)
-  const W = 210; // mm
-  const H = 148; // mm
+  // Use A4 landscape so the second emergency QR + disclaimer fits cleanly.
+  // A4 portrait: 210 x 297mm, landscape => 297 x 210mm
+  const W = 297; // mm
+  const H = 210; // mm
   const margin = 10;
 
   const doc = new jsPDF({
@@ -207,6 +209,23 @@ export const generateIdCardPDF = async (
   const rightX = W / 2 + margin;
   const rightW = W / 2 - margin * 2;
 
+  const wrapAndDrawText = (
+    doc: jsPDF,
+    text: string,
+    x: number,
+    y: number,
+    maxWidth: number,
+    lineHeight: number
+  ) => {
+    const lines = doc.splitTextToSize(text, maxWidth);
+    lines.forEach((line: string, idx: number) => {
+      doc.text(line, x, y + idx * lineHeight);
+    });
+    // Return y-position (baseline) after the last rendered line.
+    // This prevents over-estimating vertical spacing and overlapping subsequent content.
+    return y + (lines.length - 1) * lineHeight;
+  };
+
   // QR CODE
   const qrUrl = `${baseUrl}/citizen-card/${encodeURIComponent(userData.ID)}`;
   const qrDataUrl = await QRCode.toDataURL(qrUrl, {
@@ -216,7 +235,27 @@ export const generateIdCardPDF = async (
     errorCorrectionLevel: "M",
   });
 
-  const qrSize = 52;
+  // Emergency QR token generation (used only for the QR target URL)
+  const emergencyRes = await fetch(
+    apiUrl(`/emergency/generate/${encodeURIComponent(userData.ID)}`),
+    { method: "POST" }
+  );
+  if (!emergencyRes.ok) {
+    throw new Error("Failed to generate emergency access QR token");
+  }
+  const emergencyJson = (await emergencyRes.json()) as {
+    token: string;
+    emergencyUrl: string;
+  };
+  const emergencyQrFullUrl = `${baseUrl}${emergencyJson.emergencyUrl}`;
+  const emergencyQrDataUrl = await QRCode.toDataURL(emergencyQrFullUrl, {
+    width: 200,
+    margin: 1,
+    color: { dark: "#000080", light: "#f0f4ff" },
+    errorCorrectionLevel: "M",
+  });
+
+  const qrSize = 40;
   const qrX = rightX + (rightW - qrSize) / 2;
   const qrY = stripeH + 6;
 
@@ -232,15 +271,77 @@ export const generateIdCardPDF = async (
   doc.setFontSize(6.5);
   setTextColor(doc, "#6b7280");
   const scanLabel = "Scan to view full record";
-  doc.text(scanLabel, rightX + (rightW - doc.getTextWidth(scanLabel)) / 2, qrY + qrSize + 8);
+  const scanLabelY = qrY + qrSize + 4;
+  doc.text(
+    scanLabel,
+    rightX + (rightW - doc.getTextWidth(scanLabel)) / 2,
+    scanLabelY
+  );
+
+  // Emergency QR (below the existing QR)
+  const qr2Y = scanLabelY + 7;
+  doc.roundedRect(qrX - 3, qr2Y - 3, qrSize + 6, qrSize + 6, 3, 3, "FD");
+  doc.addImage(
+    emergencyQrDataUrl,
+    "PNG",
+    qrX,
+    qr2Y,
+    qrSize,
+    qrSize
+  );
+
+  // Emergency QR label
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(5.2);
+  setTextColor(doc, "#111827");
+  const emergencyLabel =
+    "EMERGENCY ACCESS QR — Scan in medical or disaster emergency";
+  // Slightly larger gap between QR square and label text.
+  const emergencyLabelY = qr2Y + qrSize + 6;
+  const emergencyLabelEndY = wrapAndDrawText(
+    doc,
+    emergencyLabel,
+    rightX,
+    emergencyLabelY,
+    rightW,
+    2.5
+  );
+
+  // Red warning disclaimer
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(4.0);
+  setTextColor(doc, "#dc2626");
+  const redDisclaimer =
+    "This QR gives limited identity access. Every scan is logged and the citizen is notified.";
+  const redTextStartY = emergencyLabelEndY + 1.0;
+  const redDisclaimerEndY = wrapAndDrawText(
+    doc,
+    redDisclaimer,
+    rightX,
+    redTextStartY,
+    rightW,
+    2.0
+  );
+
+  // Expiry
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(4.0);
+  setTextColor(doc, "#6b7280");
+  const expiryY = redDisclaimerEndY + 1.2;
+  doc.text(
+    "Valid for 72 hours from generation",
+    rightX + (rightW - doc.getTextWidth("Valid for 72 hours from generation")) / 2,
+    expiryY
+  );
 
   // Divider
   setDraw(doc, "#e5e7eb");
   doc.setLineWidth(0.3);
-  doc.line(rightX, qrY + qrSize + 12, rightX + rightW, qrY + qrSize + 12);
+  const dividerY = expiryY + 2.0;
+  doc.line(rightX, dividerY, rightX + rightW, dividerY);
 
   // Linked Credentials on right
-  const credsLabelY = qrY + qrSize + 18;
+  const credsLabelY = dividerY + 6;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   setTextColor(doc, "#000080");
@@ -253,6 +354,7 @@ export const generateIdCardPDF = async (
     doc.text("No credentials linked.", rightX, credsLabelY + 6);
   } else {
     let credY = credsLabelY + 5;
+    // A4 has enough vertical space; show more linked credentials.
     userData.LinkedCredentials.slice(0, 4).forEach((cred) => {
       setFill(doc, "#eff6ff");
       setDraw(doc, "#dbeafe");

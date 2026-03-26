@@ -9,6 +9,9 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
+  QrCode,
+  Bell,
+  X,
   Hash,
   Shield,
   Loader2,
@@ -24,6 +27,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../config/api";
 import { generateIdCardPDF } from "../utils/generateIdCard";
+import { QRCodeSVG } from "qrcode.react";
 
 // --- TYPE DEFINITIONS ---
 
@@ -83,6 +87,24 @@ interface UserProfileProps {
 interface StatusState {
   type: "success" | "error" | "";
   message: string;
+}
+
+type EmergencyNotificationType =
+  | "EMERGENCY_ACCESS_ALERT"
+  | "EMERGENCY_PING"
+  | string;
+
+interface EmergencyNotification {
+  uvid: string;
+  type: EmergencyNotificationType;
+  message: string;
+  seenByUser: boolean;
+  createdAt: string;
+}
+
+interface EmergencyTokenGenerateResponse {
+  token: string;
+  emergencyUrl: string;
 }
 
 // --- MOCK DATA (Fallback) ---
@@ -205,6 +227,24 @@ const UserProfile: React.FC<UserProfileProps> = ({
   const [showCredentialPulse, setShowCredentialPulse] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
+  // Emergency Access Mode
+  const [emergencyTokenUrl, setEmergencyTokenUrl] = useState<string>("");
+  const [emergencyExpiresAt, setEmergencyExpiresAt] = useState<number | null>(
+    null,
+  );
+  const [emergencyQRLoading, setEmergencyQRLoading] = useState(false);
+  const [emergencyStatus, setEmergencyStatus] = useState<StatusState>({
+    type: "",
+    message: "",
+  });
+  const [emergencyNotifications, setEmergencyNotifications] = useState<
+    EmergencyNotification[]
+  >([]);
+  const [unreadEmergencyNotificationsCount, setUnreadEmergencyNotificationsCount] =
+    useState(0);
+  const [showEmergencyNotificationsModal, setShowEmergencyNotificationsModal] =
+    useState(false);
+
   // 2. Handle Dynamic Prop Updates
   useEffect(() => {
     setFormData(userData);
@@ -213,6 +253,111 @@ const UserProfile: React.FC<UserProfileProps> = ({
     setOriginalLinkedCredentials(userData.LinkedCredentials || []);
     setHasChanges(false);
   }, [userData]);
+
+  // Generate Emergency QR + refresh notifications for this UVID
+  useEffect(() => {
+    if (!formData.ID) return;
+
+    const run = async () => {
+      await generateEmergencyTokenAndUrl();
+      await fetchEmergencyNotifications();
+    };
+
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.ID]);
+
+  // --- Emergency Access Mode helpers ---
+  async function generateEmergencyTokenAndUrl() {
+    if (!formData.ID) return;
+    setEmergencyQRLoading(true);
+    setEmergencyStatus({ type: "", message: "" });
+    try {
+      const res = await fetch(
+        apiUrl(`/emergency/generate/${encodeURIComponent(formData.ID)}`),
+        { method: "POST" }
+      );
+      if (!res.ok) throw new Error("Emergency token generation failed");
+
+      const data = (await res.json()) as EmergencyTokenGenerateResponse;
+      const emergencyFullUrl = `${window.location.origin}${data.emergencyUrl}`;
+
+      setEmergencyTokenUrl(emergencyFullUrl);
+      // Backend expiresAt is 72 hours from createdAt; we mirror that locally for UI.
+      setEmergencyExpiresAt(Date.now() + 72 * 60 * 60 * 1000);
+    } catch (err) {
+      setEmergencyStatus({ type: "error", message: "Failed to generate Emergency QR." });
+    } finally {
+      setEmergencyQRLoading(false);
+    }
+  }
+
+  async function fetchEmergencyNotifications() {
+    if (!formData.ID) return;
+    try {
+      const res = await fetch(
+        apiUrl(`/emergency/notifications/${encodeURIComponent(formData.ID)}`)
+      );
+      if (!res.ok) throw new Error("Failed to fetch notifications");
+      const notifications = (await res.json()) as EmergencyNotification[];
+      setEmergencyNotifications(notifications);
+      setUnreadEmergencyNotificationsCount(
+        notifications.filter((n) => !n.seenByUser).length
+      );
+    } catch {
+      setEmergencyNotifications([]);
+      setUnreadEmergencyNotificationsCount(0);
+    }
+  }
+
+  async function handleRegenerateEmergency() {
+    await generateEmergencyTokenAndUrl();
+    setEmergencyStatus({
+      type: "success",
+      message: "Emergency Access QR regenerated successfully.",
+    });
+    await fetchEmergencyNotifications();
+  }
+
+  async function handleRevokeEmergencyAccess() {
+    if (!formData.ID) return;
+    setEmergencyStatus({ type: "", message: "" });
+    try {
+      const res = await fetch(
+        apiUrl(`/emergency/token/${encodeURIComponent(formData.ID)}`),
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error("Revoke failed");
+
+      await generateEmergencyTokenAndUrl();
+      setEmergencyStatus({
+        type: "success",
+        message: "Emergency access revoked and a fresh QR has been generated.",
+      });
+      await fetchEmergencyNotifications();
+    } catch {
+      setEmergencyStatus({
+        type: "error",
+        message: "Failed to revoke emergency access.",
+      });
+    }
+  }
+
+  async function openEmergencyNotificationsModal() {
+    setShowEmergencyNotificationsModal(true);
+    await fetchEmergencyNotifications();
+  }
+
+  function markAllEmergencyNotificationsAsRead() {
+    setEmergencyNotifications((prev) =>
+      prev.map((n) => ({
+        ...n,
+        seenByUser: true,
+      }))
+    );
+    setUnreadEmergencyNotificationsCount(0);
+    // Stub: no backend endpoint yet.
+  }
 
   // 3. Change Detection Logic
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -706,6 +851,152 @@ const UserProfile: React.FC<UserProfileProps> = ({
               </div>
             </div>
           </div>
+          {/* Identity QR Codes */}
+          <div className="lg:col-span-3 space-y-6">
+            <div
+              className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${
+                isDarkMode
+                  ? "bg-[#0f0f11] border-white/10"
+                  : "bg-white border-slate-200"
+              }`}
+            >
+              <div
+                className={`px-6 py-4 border-b flex items-center justify-between transition-colors duration-700 ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-100 bg-slate-50/50"
+                }`}
+              >
+                <h2
+                  className={`text-sm font-bold uppercase tracking-wide flex items-center gap-2 ${
+                    isDarkMode ? "text-blue-400" : "text-[#000080]"
+                  }`}
+                >
+                  <QrCode size={18} /> Identity QR Codes
+                </h2>
+
+                <button
+                  type="button"
+                  onClick={() => void openEmergencyNotificationsModal()}
+                  className={`relative inline-flex items-center justify-center rounded-full px-3 py-2 border transition-colors ${
+                    isDarkMode
+                      ? "border-white/10 bg-white/5 hover:bg-white/10 text-slate-300"
+                      : "border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                  }`}
+                  title="View emergency notifications"
+                >
+                  <Bell size={16} />
+                  {unreadEmergencyNotificationsCount > 0 && (
+                    <span
+                      className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold ${
+                        isDarkMode ? "bg-red-500 text-white" : "bg-red-600 text-white"
+                      }`}
+                    >
+                      {unreadEmergencyNotificationsCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* QR 1: Your UVID */}
+                <div className="rounded-md border p-4 flex flex-col items-center gap-3">
+                  <div className="text-xs font-bold uppercase tracking-wider opacity-80 text-center">
+                    Your UVID
+                  </div>
+                  <QRCodeSVG
+                    value={formData.ID}
+                    size={140}
+                    bgColor="#FFFFFF"
+                    fgColor="#000080"
+                    level="M"
+                    marginSize={2}
+                  />
+                  <p className="text-xs text-center mt-1 text-slate-600">
+                    Show to officers for identity verification
+                  </p>
+                </div>
+
+                {/* QR 2: Emergency Access QR */}
+                <div className="rounded-md border p-4 flex flex-col items-center gap-3">
+                  <div className="text-xs font-bold uppercase tracking-wider text-red-600 text-center">
+                    Emergency Access QR
+                  </div>
+                  <QRCodeSVG
+                    value={emergencyTokenUrl || ""}
+                    size={140}
+                    bgColor="#FFFFFF"
+                    fgColor="#000080"
+                    level="M"
+                    marginSize={2}
+                  />
+                  <p
+                    className={`text-xs text-center mt-1 ${
+                      isDarkMode ? "text-red-300" : "text-red-600"
+                    }`}
+                  >
+                    For medical/disaster use only — every scan is logged
+                  </p>
+                  {emergencyExpiresAt && (
+                    <p className="text-xs text-center text-slate-600 mt-1">
+                      Valid until:{" "}
+                      {new Date(emergencyExpiresAt).toLocaleString("en-IN", {
+                        year: "numeric",
+                        month: "short",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  )}
+
+                  <div className="w-full mt-2 flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleRevokeEmergencyAccess()}
+                      disabled={emergencyQRLoading}
+                      className={`flex-1 rounded-md px-3 py-2 text-xs font-bold transition-colors disabled:opacity-60 ${
+                        isDarkMode
+                          ? "bg-red-600 hover:bg-red-700 text-white"
+                          : "bg-red-500 hover:bg-red-600 text-white"
+                      }`}
+                    >
+                      {emergencyQRLoading ? "Processing…" : "Revoke Emergency Access"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleRegenerateEmergency()}
+                      disabled={emergencyQRLoading}
+                      className={`flex-1 rounded-md px-3 py-2 text-xs font-bold transition-colors disabled:opacity-60 ${
+                        isDarkMode
+                          ? "bg-blue-600 hover:bg-blue-700 text-white"
+                          : "bg-[#000080] hover:bg-blue-900 text-white"
+                      }`}
+                    >
+                      Regenerate
+                    </button>
+                  </div>
+
+                  {emergencyStatus.message && (
+                    <div
+                      className={`w-full mt-2 rounded-md border p-3 text-xs font-semibold shadow-sm ${
+                        emergencyStatus.type === "error"
+                          ? isDarkMode
+                            ? "bg-red-500/10 border-red-500/20 text-red-400"
+                            : "bg-red-50 border-red-200 text-red-800"
+                          : isDarkMode
+                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                            : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      }`}
+                    >
+                      {emergencyStatus.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Main Column */}
           <div className="lg:col-span-2 space-y-8">
             {/* Personal Details */}
@@ -957,6 +1248,128 @@ const UserProfile: React.FC<UserProfileProps> = ({
         </div>
         <div className="h-24"></div> {/* Spacer for fixed footer */}
       </div>
+
+      {/* Emergency Notifications Modal */}
+      {showEmergencyNotificationsModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className={`rounded-lg shadow-xl border max-w-2xl w-full mx-4 overflow-hidden transition-colors duration-700 ${
+              isDarkMode ? "bg-[#0f0f11] border-white/10" : "bg-white border-slate-200"
+            }`}
+          >
+            <div
+              className={`p-5 border-b flex items-center justify-between gap-4 transition-colors duration-700 ${
+                isDarkMode ? "border-white/10 bg-white/5" : "border-slate-100 bg-slate-50/50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Bell size={18} />
+                <h3
+                  className={`text-sm font-bold uppercase tracking-wide ${
+                    isDarkMode ? "text-blue-400" : "text-[#000080]"
+                  }`}
+                >
+                  Emergency Notifications
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={markAllEmergencyNotificationsAsRead}
+                  className={`rounded-md px-3 py-2 text-xs font-bold transition-colors ${
+                    isDarkMode
+                      ? "bg-slate-700 hover:bg-slate-600 text-white"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  Mark all as read
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEmergencyNotificationsModal(false)}
+                  className={`rounded-md p-2 transition-colors ${
+                    isDarkMode
+                      ? "hover:bg-white/10 text-slate-300"
+                      : "hover:bg-slate-100 text-slate-700"
+                  }`}
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 max-h-[70vh] overflow-auto space-y-3">
+              {emergencyNotifications.length === 0 ? (
+                <div className="text-sm text-slate-600">
+                  No emergency access events recorded
+                </div>
+              ) : (
+                emergencyNotifications.map((n, idx) => {
+                  const isAlert = n.type === "EMERGENCY_ACCESS_ALERT";
+                  const badgeClass = isAlert
+                    ? isDarkMode
+                      ? "bg-red-500 text-white"
+                      : "bg-red-600 text-white"
+                    : isDarkMode
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                      : "bg-amber-100 text-amber-900 border border-amber-200";
+
+                  const accessorMatch = n.message.match(/^(.+?)\s*\(([^)]+)\)/);
+                  const accessorName = accessorMatch?.[1];
+                  const accessorRole = accessorMatch?.[2];
+
+                  return (
+                    <div
+                      key={`${n.type}-${n.createdAt}-${idx}`}
+                      className={`rounded-md border p-3 ${
+                        isDarkMode ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold ${badgeClass}`}
+                        >
+                          {n.type}
+                        </span>
+                        <span
+                          className={`text-xs font-semibold ${
+                            isDarkMode ? "text-slate-400" : "text-slate-500"
+                          }`}
+                        >
+                          {n.createdAt
+                            ? new Date(n.createdAt).toLocaleString("en-IN", {
+                                year: "numeric",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "—"}
+                        </span>
+                      </div>
+
+                      {accessorName && accessorRole && (
+                        <div className="mt-2 text-xs font-bold text-slate-700">
+                          {accessorName} • {accessorRole}
+                        </div>
+                      )}
+
+                      <p
+                        className={`mt-2 text-sm ${
+                          isDarkMode ? "text-slate-200" : "text-slate-700"
+                        }`}
+                      >
+                        {n.message}
+                      </p>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Button - Fixed Position */}
       <button

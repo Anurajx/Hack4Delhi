@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const SHA256 = require("crypto-js/sha256");
 const fuzz = require("fuzzball");
+const { v4: uuidv4 } = require("uuid");
 const { generateUniqueCode, IDType } = require("./UVID/generator");
 const { EPICgenerator, generateDistrictID } = require("./EPIC/generator");
 const Blockchain = require("./Blockchain/Blockchain"); // or correct path
@@ -38,6 +39,42 @@ const voterSchema = new mongoose.Schema({}, { strict: false });
 const StateVoter = DB.model("Voter", voterSchema, "voters");
 const TempVoter = DB.model("Voter", voterSchema, "tempVotersBLO");
 const UpdateVoter = DB.model("Voter", voterSchema, "toUpdate");
+
+// Emergency Access Models
+const emergencyTokenSchema = new mongoose.Schema(
+  {
+    uvid: { type: String, required: true, index: true },
+    token: { type: String, required: true, unique: true, index: true },
+    createdAt: { type: Date, default: () => new Date() },
+    expiresAt: { type: Date, required: true },
+    isActive: { type: Boolean, default: true },
+    accessLog: { type: Array, default: [] }, // [{accessedAt, accessorNote, ...}]
+  },
+  { strict: true }
+);
+
+const EmergencyToken = DB.model(
+  "EmergencyToken",
+  emergencyTokenSchema,
+  "emergencyTokens"
+);
+
+const notificationSchema = new mongoose.Schema(
+  {
+    uvid: { type: String, required: true, index: true },
+    type: { type: String, required: true, index: true },
+    message: { type: String, required: true },
+    seenByUser: { type: Boolean, default: false },
+    createdAt: { type: Date, default: () => new Date() },
+  },
+  { strict: true }
+);
+
+const Notification = DB.model(
+  "EmergencyNotification",
+  notificationSchema,
+  "notifications"
+);
 
 /* -----------------------------------
    ROUTES
@@ -272,6 +309,234 @@ app.put("/updateRequest/:id", async (req, res) => {
 
   await newVoter.save();
   res.json({ message: "Application submitted for updation" });
+});
+
+// ===========================
+// Emergency Access Mode APIs
+// ===========================
+
+// 1) Generate a signed emergency access token (stored in Mongo)
+app.post("/emergency/generate/:uvid", async (req, res) => {
+  try {
+    const uvid = req.params.uvid;
+    if (!uvid) return res.status(400).json({ message: "uvid is required" });
+
+    const token = uuidv4();
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 72 * 60 * 60 * 1000); // 72 hours
+
+    const emergencyToken = await EmergencyToken.create({
+      uvid,
+      token,
+      createdAt,
+      expiresAt,
+      isActive: true,
+      accessLog: [],
+    });
+
+    res.json({
+      token: emergencyToken.token,
+      emergencyUrl: `/emergency/${emergencyToken.token}`,
+    });
+  } catch (error) {
+    console.error("Emergency token generation error:", error);
+    res.status(500).json({ message: "Failed to generate emergency token" });
+  }
+});
+
+// 2) Public emergency endpoint (no auth)
+app.get("/emergency/:token", async (req, res, next) => {
+  try {
+    const token = req.params.token;
+    // Avoid route shadowing: /emergency/notifications/:uvid is also a GET route.
+    if (token === "notifications") return next();
+    const emergencyToken = await EmergencyToken.findOne({ token }).lean();
+
+    if (
+      !emergencyToken ||
+      emergencyToken.isActive !== true ||
+      !emergencyToken.expiresAt ||
+      new Date(emergencyToken.expiresAt).getTime() <= Date.now()
+    ) {
+      return res.status(403).json({ message: "Emergency token expired or revoked" });
+    }
+
+    const voter = await StateVoter.findOne({ ID: emergencyToken.uvid }).lean();
+    if (!voter) return res.status(404).json({ message: "Citizen/UVID not found" });
+
+    // Append access log entry
+    await EmergencyToken.updateOne(
+      { token },
+      {
+        $push: {
+          accessLog: { accessedAt: Date.now(), accessorNote: "" },
+        },
+      }
+    );
+
+    // Immutable blockchain log
+    blockchain.logImmutableEvent({
+      ID: emergencyToken.uvid,
+      TYPE: "EMERGENCY_ACCESS",
+      CREDENTIAL_TYPE: "PROFILE",
+      DETAILS: "Public emergency token accessed",
+      actor: "ANONYMOUS_EMERGENCY",
+    });
+
+    // Return ONLY allowed fields
+    res.json({
+      FirstName: voter.FirstName,
+      LastName: voter.LastName,
+      Phone: voter.Phone,
+      State: voter.State,
+      Birthday: voter.Birthday,
+      Sex: voter.Sex,
+
+      bloodGroup: voter.bloodGroup,
+      allergies: voter.allergies,
+      emergencyContact: voter.emergencyContact,
+      organDonor: voter.organDonor,
+      medicalConditions: voter.medicalConditions,
+      insuranceId: voter.insuranceId,
+    });
+  } catch (error) {
+    console.error("Emergency token access error:", error);
+    res.status(500).json({ message: "Failed to access emergency token" });
+  }
+});
+
+// 3) Notify identity holder after accessor identifies themselves
+app.post("/emergency/notify/:token", async (req, res) => {
+  try {
+    const token = req.params.token;
+    const { reason, accessorName, accessorRole, accessorPhone } = req.body || {};
+
+    if (!reason || !accessorName || !accessorRole) {
+      return res.status(400).json({
+        message: "reason, accessorName, and accessorRole are required",
+      });
+    }
+
+    const emergencyToken = await EmergencyToken.findOne({ token });
+    if (
+      !emergencyToken ||
+      emergencyToken.isActive !== true ||
+      !emergencyToken.expiresAt ||
+      new Date(emergencyToken.expiresAt).getTime() <= Date.now()
+    ) {
+      return res.status(403).json({ message: "Emergency token expired or revoked" });
+    }
+
+    if (!Array.isArray(emergencyToken.accessLog) || emergencyToken.accessLog.length === 0) {
+      // If notify comes without a prior access, still create a log entry.
+      emergencyToken.accessLog = [
+        {
+          accessedAt: Date.now(),
+          accessorNote: reason,
+          reason,
+          accessorName,
+          accessorRole,
+          accessorPhone,
+        },
+      ];
+    } else {
+      const lastIdx = emergencyToken.accessLog.length - 1;
+      emergencyToken.accessLog[lastIdx] = {
+        ...emergencyToken.accessLog[lastIdx],
+        accessorNote: reason,
+        reason,
+        accessorName,
+        accessorRole,
+        accessorPhone,
+      };
+    }
+
+    await emergencyToken.save();
+
+    const message = `${accessorName} (${accessorRole}) requested emergency access: ${reason}`;
+    await Notification.create({
+      uvid: emergencyToken.uvid,
+      type: "EMERGENCY_ACCESS_ALERT",
+      message,
+      seenByUser: false,
+      createdAt: new Date(),
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Emergency notify error:", error);
+    res.status(500).json({ message: "Failed to notify identity holder" });
+  }
+});
+
+// 4) Ping notifications (ongoing assistance)
+app.post("/emergency/ping/:token", async (req, res) => {
+  try {
+    const token = req.params.token;
+    const { message } = req.body || {};
+
+    if (!message) {
+      return res.status(400).json({ message: "message is required" });
+    }
+
+    const emergencyToken = await EmergencyToken.findOne({ token }).lean();
+    if (
+      !emergencyToken ||
+      emergencyToken.isActive !== true ||
+      !emergencyToken.expiresAt ||
+      new Date(emergencyToken.expiresAt).getTime() <= Date.now()
+    ) {
+      return res.status(403).json({ message: "Emergency token expired or revoked" });
+    }
+
+    await Notification.create({
+      uvid: emergencyToken.uvid,
+      type: "EMERGENCY_PING",
+      message,
+      seenByUser: false,
+      createdAt: new Date(),
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Emergency ping error:", error);
+    res.status(500).json({ message: "Failed to send ping" });
+  }
+});
+
+// 5) Fetch notifications for a citizen
+app.get("/emergency/notifications/:uvid", async (req, res) => {
+  try {
+    const uvid = req.params.uvid;
+    if (!uvid) return res.status(400).json({ message: "uvid is required" });
+
+    const notifications = await Notification.find({ uvid })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json(notifications);
+  } catch (error) {
+    console.error("Emergency notifications fetch error:", error);
+    res.status(500).json({ message: "Failed to fetch notifications" });
+  }
+});
+
+// 6) Revoke emergency access for a citizen
+app.delete("/emergency/token/:uvid", async (req, res) => {
+  try {
+    const uvid = req.params.uvid;
+    if (!uvid) return res.status(400).json({ message: "uvid is required" });
+
+    const result = await EmergencyToken.updateMany(
+      { uvid, isActive: true },
+      { $set: { isActive: false } }
+    );
+
+    res.json({ success: true, revokedCount: result.modifiedCount || 0 });
+  } catch (error) {
+    console.error("Emergency token revoke error:", error);
+    res.status(500).json({ message: "Failed to revoke emergency access" });
+  }
 });
 
 //read psuedo update db
