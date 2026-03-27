@@ -1215,6 +1215,120 @@ const UserProfile: React.FC<UserProfileProps> = ({
               </div>
             </div>
 
+            {/* Medical & Emergency Profile */}
+            <div
+              className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${
+                isDarkMode
+                  ? "bg-[#0f0f11] border-white/10"
+                  : "bg-white border-slate-200"
+              }`}
+            >
+              <div
+                className={`px-6 py-4 border-b flex items-center justify-between transition-colors duration-700 ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-100 bg-slate-50/50"
+                }`}
+              >
+                <h2
+                  className={`text-sm font-bold uppercase tracking-wide flex items-center gap-2 ${
+                    isDarkMode ? "text-red-400" : "text-[#b91c1c]"
+                  }`}
+                >
+                  <AlertCircle size={18} /> Medical & Emergency Profile
+                </h2>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex flex-col gap-1.5 col-span-1">
+                  <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Blood Group
+                  </label>
+                  <select
+                    name="bloodGroup"
+                    value={formData.bloodGroup || ""}
+                    onChange={(e) => handleInputChange(e as any)}
+                    className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-all ${
+                      isDarkMode
+                        ? "border-white/10 bg-white/5 text-white"
+                        : "border-slate-300 bg-white text-slate-900"
+                    }`}
+                  >
+                    <option value="">Select Group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5 col-span-1">
+                  <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Organ Donor Status
+                  </label>
+                  <div className="flex items-center gap-4 py-2">
+                    {["Yes", "No"].map((opt) => (
+                      <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="organDonor"
+                          value={opt}
+                          checked={formData.organDonor === opt}
+                          onChange={(e) => handleInputChange(e as any)}
+                          className="w-4 h-4 accent-red-600"
+                        />
+                        <span className={`text-sm font-medium ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <InputGroup
+                    label="Allergies (comma-separated)"
+                    name="allergies"
+                    value={formData.allergies as any}
+                    fullWidth
+                    placeholder="e.g. Penicillin, Pollen, Nuts (leave blank if none)"
+                    onChange={handleInputChange}
+                    isModified={initialData.allergies !== formData.allergies}
+                    isDarkMode={isDarkMode}
+                  />
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <label className={`text-xs font-bold uppercase tracking-wider mb-1.5 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Existing Medical Conditions
+                  </label>
+                  <textarea
+                    name="medicalConditions"
+                    value={formData.medicalConditions || ""}
+                    onChange={(e) => handleInputChange(e as any)}
+                    rows={3}
+                    placeholder="Provide brief details about chronic conditions, or 'None'"
+                    className={`w-full px-4 py-2.5 rounded-md border text-sm font-medium transition-all ${
+                      isDarkMode
+                        ? "border-white/10 bg-white/5 text-white"
+                        : "border-slate-300 bg-white text-slate-900"
+                    }`}
+                  />
+                </div>
+
+                <InputGroup
+                  label="Private Insurance ID"
+                  name="insuranceId"
+                  value={formData.insuranceId || ""}
+                  icon={Shield}
+                  onChange={handleInputChange}
+                  isModified={initialData.insuranceId !== formData.insuranceId}
+                  isDarkMode={isDarkMode}
+                />
+              </div>
+            </div>
+
             {/* Emergency Contacts */}
             <div
               className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${

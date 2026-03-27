@@ -499,8 +499,8 @@ This is an automated alert from CredChain India.
           : false;
         const smsRecipients = Array.isArray(results)
           ? results
-              .map((r) => r?.to)
-              .filter((t) => typeof t === "string" && t.trim())
+            .map((r) => r?.to)
+            .filter((t) => typeof t === "string" && t.trim())
           : [];
 
         return EmergencyToken.updateOne(
