@@ -634,7 +634,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
     setIsGeneratingPDF(true);
     try {
       const baseUrl = window.location.origin;
-      await generateIdCardPDF(formData, baseUrl);
+      await generateIdCardPDF(formData, baseUrl, emergencyTokenUrl);
     } catch (err) {
       console.error("PDF generation failed:", err);
       setStatus({ type: "error", message: "Failed to generate ID card PDF." });

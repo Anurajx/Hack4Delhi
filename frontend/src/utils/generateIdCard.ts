@@ -79,7 +79,8 @@ const setTextColor = (doc: jsPDF, hex: string) => {
 
 export const generateIdCardPDF = async (
   userData: UserData,
-  baseUrl: string
+  baseUrl: string,
+  emergencyQrUrl?: string // Added optional pre-generated URL
 ): Promise<void> => {
   const W = 297; // A4 Landscape width
   const H = 210; // A4 Landscape height
@@ -269,10 +270,20 @@ export const generateIdCardPDF = async (
   doc.text("Full Citizen Record Link", rightColX + 10, qrTopY + qrSize + 7);
 
   // Emergency QR
-  const emergencyRes = await fetch(apiUrl(`/emergency/generate/${encodeURIComponent(userData.ID)}`), { method: "POST" });
-  const emergencyJson = await emergencyRes.json();
-  const emergencyQrUrl = `${baseUrl}${emergencyJson.emergencyUrl}`;
-  const emergencyQrDataUrl = await QRCode.toDataURL(emergencyQrUrl, {
+  let finalEmergencyQrUrl = emergencyQrUrl;
+  if (!finalEmergencyQrUrl) {
+    try {
+      const emergencyRes = await fetch(apiUrl(`/emergency/generate/${encodeURIComponent(userData.ID)}`), { method: "POST" });
+      const emergencyJson = await emergencyRes.json();
+      finalEmergencyQrUrl = `${baseUrl}${emergencyJson.emergencyUrl}`;
+    } catch (err) {
+      console.error("Failed to generate emergency QR during PDF creation:", err);
+      // fallback if needed
+      finalEmergencyQrUrl = `${baseUrl}/emergency/error`;
+    }
+  }
+
+  const emergencyQrDataUrl = await QRCode.toDataURL(finalEmergencyQrUrl, {
     width: 200, margin: 1, color: { dark: "#991B1B", light: White }
   });
   
