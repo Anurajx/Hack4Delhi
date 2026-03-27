@@ -61,6 +61,11 @@ interface UserData {
     phone1: string;
     phone2: string;
   }>;
+  bloodGroup?: string;
+  medicalConditions?: string;
+  allergies?: string;
+  organDonor?: string;
+  insuranceId?: string;
   // Index signature to allow dynamic access via keys
   [key: string]:
     | string
@@ -91,6 +96,7 @@ interface InputGroupProps {
   fullWidth?: boolean;
   disabled?: boolean;
   isModified?: boolean;
+  placeholder?: string;
 }
 
 interface UserProfileProps {
@@ -179,6 +185,7 @@ const InputGroup: React.FC<InputGroupProps & { isDarkMode?: boolean }> = ({
   disabled = false,
   isModified = false,
   isDarkMode = false,
+  placeholder = "",
 }) => (
   <div
     className={`flex flex-col space-y-1.5 ${
@@ -199,6 +206,7 @@ const InputGroup: React.FC<InputGroupProps & { isDarkMode?: boolean }> = ({
         value={value || ""}
         onChange={onChange}
         disabled={disabled}
+        placeholder={placeholder}
         className={`
           w-full px-4 py-2.5 rounded-md border text-sm font-medium
           transition-all duration-200 ease-in-out
@@ -1245,7 +1253,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                   </label>
                   <select
                     name="bloodGroup"
-                    value={formData.bloodGroup || ""}
+                    value={(formData.bloodGroup as string) || ""}
                     onChange={(e) => handleInputChange(e as any)}
                     className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-all ${
                       isDarkMode
@@ -1305,7 +1313,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                   </label>
                   <textarea
                     name="medicalConditions"
-                    value={formData.medicalConditions || ""}
+                    value={(formData.medicalConditions as string) || ""}
                     onChange={(e) => handleInputChange(e as any)}
                     rows={3}
                     placeholder="Provide brief details about chronic conditions, or 'None'"
@@ -1320,7 +1328,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                 <InputGroup
                   label="Private Insurance ID"
                   name="insuranceId"
-                  value={formData.insuranceId || ""}
+                  value={(formData.insuranceId as string) || ""}
                   icon={Shield}
                   onChange={handleInputChange}
                   isModified={initialData.insuranceId !== formData.insuranceId}
