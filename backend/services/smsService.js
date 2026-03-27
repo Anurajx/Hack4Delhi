@@ -1,18 +1,23 @@
-const hasTwilioCredentials =
-  !!process.env.TWILIO_ACCOUNT_SID &&
-  !!process.env.TWILIO_AUTH_TOKEN &&
-  !!process.env.TWILIO_PHONE_NUMBER;
-
 let twilioClient = null;
-let Twilio = null;
 
-if (hasTwilioCredentials) {
-  // Twilio import only lives in this helper (never in server.js).
-  Twilio = require("twilio");
-  twilioClient = Twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-  );
+function getTwilioClient() {
+  if (twilioClient) return twilioClient;
+
+  if (
+    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN &&
+    process.env.TWILIO_PHONE_NUMBER
+  ) {
+    const Twilio = require("twilio");
+    twilioClient = Twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+    console.log("Twilio client initialized");
+  } else {
+    // console.warn("Twilio missing env vars");
+  }
+  return twilioClient;
 }
 
 /**
@@ -26,9 +31,10 @@ async function sendSMS(to, message) {
     return { to: phone, sent: false, reason: "Empty recipient" };
   }
 
-  if (!twilioClient) {
+  const client = getTwilioClient();
+  if (!client) {
     console.warn(
-      "Twilio not configured. Skipping SMS send.",
+      "Twilio credentials missing. Skipping SMS send.",
       `to=${phone}`
     );
     return { to: phone, sent: false, reason: "Twilio not configured" };
@@ -36,7 +42,13 @@ async function sendSMS(to, message) {
 
   try {
     const from = process.env.TWILIO_PHONE_NUMBER;
-    const sms = await twilioClient.messages.create({
+    // Twilio restriction: Can't send to self
+    if (phone === String(from || "").trim()) {
+      console.warn("Skipping SMS send: Recipient (To) is identical to Twilio sender (From). Use a different test number.");
+      return { to: phone, sent: false, reason: "Same sender/receiver" };
+    }
+
+    const sms = await client.messages.create({
       from,
       to: phone,
       body: message,

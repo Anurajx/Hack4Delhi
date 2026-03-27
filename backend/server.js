@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -11,7 +12,6 @@ const blockchain = new Blockchain();
 const { computeConfidenceScore } = require("./models/confidence");
 const { sendSMSToAllContacts, sendSMS } = require("./services/smsService");
 
-require("dotenv").config();
 
 const app = express();
 app.use(cors());
@@ -110,7 +110,6 @@ const Notification = DB.model(
    ROUTES
 ----------------------------------- */
 
-// Get state-wise statistics
 app.get("/api/state-stats", async (req, res) => {
   try {
     // Additions: count approved voters per state
@@ -142,6 +141,24 @@ app.get("/api/state-stats", async (req, res) => {
       count,
     }));
 
+    // Fraud Detection: Aggregate markers from StateVoter
+    const fraudMarkersData = await StateVoter.aggregate([
+      {
+        $group: {
+          _id: "$State",
+          tamperCount: { $sum: { $cond: ["$TamperCheckFailed", 1, 0] } },
+          fuzzyHighCount: { $sum: { $cond: [{ $gt: ["$FuzzyMatchRatio", 0.8] }, 1, 0] } },
+          total: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Linked Credentials: count total linked credentials per state
+    const linkedCredsData = await StateVoter.aggregate([
+      { $unwind: { path: "$LinkedCredentials", preserveNullAndEmptyArrays: false } },
+      { $group: { _id: "$State", count: { $sum: 1 } } }
+    ]);
+
     const statsByState = {};
     const mergeStats = (data, key) => {
       data.forEach((item) => {
@@ -152,15 +169,27 @@ app.get("/api/state-stats", async (req, res) => {
             additions: 0,
             updations: 0,
             duplications: 0,
+            linkedCredentials: 0,
+            tamperCount: 0,
+            fraudScore: 0
           };
         }
-        statsByState[stateName][key] = item.count;
+        if (key === "fraudMarkers") {
+           statsByState[stateName].tamperCount = item.tamperCount || 0;
+           // Calculate a rudimentary fraud score 0-10
+           const baseScore = ((item.tamperCount * 2) + (item.fuzzyHighCount * 1.5)) / (item.total || 1);
+           statsByState[stateName].fraudScore = Math.min(10, Math.max(0.5, baseScore * 5));
+        } else {
+           statsByState[stateName][key] = item.count;
+        }
       });
     };
 
     mergeStats(additionsData, "additions");
     mergeStats(updationsData, "updations");
     mergeStats(duplicationsData, "duplications");
+    mergeStats(linkedCredsData, "linkedCredentials");
+    mergeStats(fraudMarkersData, "fraudMarkers");
 
     res.json(Object.values(statsByState));
   } catch (error) {
@@ -470,12 +499,9 @@ app.get("/emergency/:token", async (req, res, next) => {
       }
     );
 
-    // Fire-and-forget SMS scan alert to all emergency contacts.
-    // Prefer contacts stored in the emergency token; fallback to citizen record.
-    const emergencyContacts = normalizeEmergencyContacts({
-      emergencyContacts: emergencyToken.emergencyContacts,
-      emergencyContact: voter.emergencyContact,
-    });
+    // ALWAYS fetch latest emergency contacts from the verified voter record, 
+    // rather than using the static snapshot in the token.
+    const emergencyContacts = normalizeEmergencyContacts(voter);
     const scanIstTimestamp = formatTimestampIST(new Date(scanAccessedAt));
     const fullName = `${(voter.FirstName || "").trim()} ${(voter.LastName || "").trim()}`.trim();
     const scanSmsMessage = `[CredChain Emergency Alert]
@@ -841,6 +867,32 @@ app.put("/update/:id", async (req, res) => {
 
   await UpdateVoter.deleteOne({ ID: req.params.id }); //delete the update request from updateDB
   res.json(voter);
+});
+
+// Direct update of citizen record (specifically for emergency/medical info)
+app.put("/update-citizen/:id", async (req, res) => {
+  try {
+    console.log(`Direct update requested for ${req.params.id}:`, req.body);
+    const voter = await StateVoter.findOneAndUpdate(
+      { ID: req.params.id },
+      { $set: req.body },
+      { new: true }
+    );
+    if (!voter) return res.status(404).json({ message: "Citizen not found" });
+    
+    // Log change to blockchain
+    blockchain.logImmutableEvent({
+      ID: req.params.id,
+      TYPE: "PROFILE_UPDATE",
+      DETAILS: "Medical/Emergency profile updated by citizen",
+      actor: "CITIZEN",
+    });
+
+    res.json(voter);
+  } catch (error) {
+    console.error("Direct update error:", error);
+    res.status(500).json({ message: "Failed to update profile directly" });
+  }
 });
 
 // Link additional credentials to existing UVID
