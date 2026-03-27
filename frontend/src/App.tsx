@@ -2,7 +2,7 @@ import "./App.css";
 
 import { useState, useEffect } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { User, ShieldCheck, Lock, Sun, Moon, ArrowRight } from "lucide-react";
+import { User, ShieldCheck, Lock, Sun, Moon, ArrowRight, Scan } from "lucide-react";
 import RegistrationSuccess from "./pages/registractionSuccess";
 import UserProfile from "./pages/userProfile";
 import CitizenLogin from "./pages/citizenLogin";
@@ -17,6 +17,7 @@ import EmergencyAccess from "./pages/emergencyAccess";
 import AboutPage from "./pages/AboutPage";
 import CredentialServicesPage from "./pages/CredentialServicesPage";
 import MediaPage from "./pages/MediaPage";
+import ScannerPage from "./pages/ScannerPage";
 import { useTheme } from "./contexts/ThemeContext";
 //import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 
@@ -58,6 +59,7 @@ const App: React.FC = () => {
   const isAbout = location.pathname === "/about";
   const isCredentialServices = location.pathname === "/credential-services";
   const isMedia = location.pathname === "/media";
+  const isScanner = location.pathname === "/scanner";
 
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   //const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -110,7 +112,8 @@ const App: React.FC = () => {
         !isEmergencyAccess &&
         !isAbout &&
         !isCredentialServices &&
-        !isMedia && (
+        !isMedia &&
+        !isScanner && (
           <div className="fixed inset-0 z-0 pointer-events-none">
             <div
               className={`absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:4rem_4rem] 
@@ -245,6 +248,21 @@ const App: React.FC = () => {
                     <Moon className="w-4 h-4" />
                   )}
                 </button>
+                <div
+                  className={`w-px h-4 mx-4 ${isDarkMode ? "bg-white/10" : "bg-slate-200"
+                    }`}
+                ></div>
+                <button
+                  onClick={() => navigate("/scanner")}
+                  className={`p-2 rounded-full transition-all duration-300 cursor-pointer
+              ${isDarkMode
+                      ? "text-orange-400 hover:text-white bg-orange-500/10 hover:bg-orange-500/20"
+                      : "text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100"
+                    }`}
+                  title="Scan CredChain QR"
+                >
+                  <Scan className="w-4 h-4" />
+                </button>
               </div>
               {/* <button
             className={`md:hidden p-2 rounded-lg ${
@@ -281,6 +299,7 @@ const App: React.FC = () => {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/credential-services" element={<CredentialServicesPage />} />
           <Route path="/media" element={<MediaPage />} />
+          <Route path="/scanner" element={<ScannerPage />} />
           <Route
             path="/*"
             element={

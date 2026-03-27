@@ -403,11 +403,10 @@ app.post("/emergency/generate/:uvid", async (req, res) => {
     const expiresAt = new Date(createdAt.getTime() + 72 * 60 * 60 * 1000); // 72 hours
 
     const voter = await StateVoter.findOne({ ID: uvid }).lean();
-    // Prefer the token snapshot emergency contacts; fallback to the citizen record.
-    const emergencyContacts = normalizeEmergencyContacts({
-      emergencyContacts: emergencyToken.emergencyContacts,
-      emergencyContact: voter.emergencyContact,
-    });
+    if (!voter) return res.status(404).json({ message: "Citizen not found" });
+
+    // Extract normalized emergency contacts from the voter record.
+    const emergencyContacts = normalizeEmergencyContacts(voter);
 
     const emergencyToken = await EmergencyToken.create({
       uvid,
