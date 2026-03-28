@@ -2,7 +2,7 @@ import "./App.css";
 
 import { useState, useEffect } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { User, ShieldCheck, Lock, Sun, Moon, ArrowRight } from "lucide-react";
+import { User, ShieldCheck, Lock, Sun, Moon, ArrowRight, Scan } from "lucide-react";
 import RegistrationSuccess from "./pages/registractionSuccess";
 import UserProfile from "./pages/userProfile";
 import CitizenLogin from "./pages/citizenLogin";
@@ -14,6 +14,10 @@ import IndiaMapPage from "./pages/indiaMapPage";
 import RegionalHeatmap from "./pages/RegionalHeatmap";
 import CitizenCardPage from "./pages/CitizenCardPage";
 import EmergencyAccess from "./pages/emergencyAccess";
+import AboutPage from "./pages/AboutPage";
+import CredentialServicesPage from "./pages/CredentialServicesPage";
+import MediaPage from "./pages/MediaPage";
+import ScannerPage from "./pages/ScannerPage";
 import { useTheme } from "./contexts/ThemeContext";
 //import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 
@@ -52,6 +56,10 @@ const App: React.FC = () => {
   const isRegionalHeatmap = location.pathname === "/regional-heatmap";
   const isCitizenCard = location.pathname.startsWith("/citizen-card");
   const isEmergencyAccess = location.pathname.startsWith("/emergency/");
+  const isAbout = location.pathname === "/about";
+  const isCredentialServices = location.pathname === "/credential-services";
+  const isMedia = location.pathname === "/media";
+  const isScanner = location.pathname === "/scanner";
 
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   //const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -101,7 +109,11 @@ const App: React.FC = () => {
         !isIndiaMap &&
         !isRegionalHeatmap &&
         !isCitizenCard &&
-        !isEmergencyAccess && (
+        !isEmergencyAccess &&
+        !isAbout &&
+        !isCredentialServices &&
+        !isMedia &&
+        !isScanner && (
           <div className="fixed inset-0 z-0 pointer-events-none">
             <div
               className={`absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:4rem_4rem] 
@@ -130,7 +142,7 @@ const App: React.FC = () => {
         // !isAuditTrail &&
         // !isFuzzyDetection &&
         // !isCitizenCard &&
-         (
+        (
           <nav
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent
           ${isScrolled
@@ -179,27 +191,27 @@ const App: React.FC = () => {
               </div>
 
               <div className="hidden md:flex items-center gap-1">
-                {["About", "Credential Services", "Media"].map((item) => (
-                  <a
-                    key={item}
-                    href="#"
-                    onClick={alert.bind(
-                      null,
-                      "please use homepage to navigate to " + `${item}`,
-                    )}
-                    className={`px-4 py-2 text-xs font-medium uppercase tracking-wide rounded-full transition-all duration-300 select-none
+                {[
+                  { name: "About", path: "/about" },
+                  { name: "Credential Services", path: "/credential-services" },
+                  { name: "Media", path: "/media" },
+                ].map((item) => (
+                  <button
+                    key={item.name}
+                    onClick={() => navigate(item.path)}
+                    className={`px-4 py-2 text-xs font-medium uppercase tracking-wide rounded-full transition-all duration-300 select-none cursor-pointer
                 ${isDarkMode
                         ? "text-slate-400 hover:text-white hover:bg-white/5"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                       }`}
                   >
-                    {item}
-                  </a>
+                    {item.name}
+                  </button>
                 ))}
 
                 <button
                   onClick={() => navigate("/india-map")}
-                  className={`px-4 py-2 text-xs font-bold uppercase tracking-wide rounded-full transition-all duration-300 select-none
+                  className={`px-4 py-2 text-xs font-bold uppercase tracking-wide rounded-full transition-all duration-300 select-none cursor-pointer
                 ${isDarkMode
                       ? "text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
                       : "text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 shadow-[0_0_10px_rgba(59,130,246,0.3)]"
@@ -210,7 +222,7 @@ const App: React.FC = () => {
 
                 <button
                   onClick={() => navigate('/regional-heatmap')}
-                  className={`px-4 py-2 text-xs font-medium uppercase tracking-wide rounded-full transition-all duration-300 select-none
+                  className={`px-4 py-2 text-xs font-medium uppercase tracking-wide rounded-full transition-all duration-300 select-none cursor-pointer
                 ${isDarkMode
                       ? "text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
                       : "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
@@ -224,7 +236,7 @@ const App: React.FC = () => {
                 ></div>
                 <button
                   onClick={toggleTheme}
-                  className={`p-2 rounded-full transition-all duration-300 
+                  className={`p-2 rounded-full transition-all duration-300 cursor-pointer
               ${isDarkMode
                       ? "text-slate-400 hover:text-amber-400 hover:bg-white/5"
                       : "text-slate-500 hover:text-amber-500 hover:bg-slate-100"
@@ -235,6 +247,21 @@ const App: React.FC = () => {
                   ) : (
                     <Moon className="w-4 h-4" />
                   )}
+                </button>
+                <div
+                  className={`w-px h-4 mx-4 ${isDarkMode ? "bg-white/10" : "bg-slate-200"
+                    }`}
+                ></div>
+                <button
+                  onClick={() => navigate("/scanner")}
+                  className={`p-2 rounded-full transition-all duration-300 cursor-pointer
+              ${isDarkMode
+                      ? "text-orange-400 hover:text-white bg-orange-500/10 hover:bg-orange-500/20"
+                      : "text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100"
+                    }`}
+                  title="Scan CredChain QR"
+                >
+                  <Scan className="w-4 h-4" />
                 </button>
               </div>
               {/* <button
@@ -269,6 +296,10 @@ const App: React.FC = () => {
           <Route path="/regional-heatmap" element={<RegionalHeatmap />} />
           <Route path="/citizen-card/:id" element={<CitizenCardPage />} />
           <Route path="/emergency/:token" element={<EmergencyAccess />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/credential-services" element={<CredentialServicesPage />} />
+          <Route path="/media" element={<MediaPage />} />
+          <Route path="/scanner" element={<ScannerPage />} />
           <Route
             path="/*"
             element={

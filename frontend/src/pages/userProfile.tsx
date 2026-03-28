@@ -61,6 +61,11 @@ interface UserData {
     phone1: string;
     phone2: string;
   }>;
+  bloodGroup?: string;
+  medicalConditions?: string;
+  allergies?: string;
+  organDonor?: string;
+  insuranceId?: string;
   // Index signature to allow dynamic access via keys
   [key: string]:
     | string
@@ -91,6 +96,7 @@ interface InputGroupProps {
   fullWidth?: boolean;
   disabled?: boolean;
   isModified?: boolean;
+  placeholder?: string;
 }
 
 interface UserProfileProps {
@@ -121,6 +127,14 @@ interface EmergencyTokenGenerateResponse {
   token: string;
   emergencyUrl: string;
 }
+
+const normalizeMedicalProfile = (data: Partial<UserData> = {}): Partial<UserData> => ({
+  bloodGroup: data.bloodGroup || "",
+  medicalConditions: data.medicalConditions || "",
+  allergies: data.allergies || "",
+  organDonor: data.organDonor || "",
+  insuranceId: data.insuranceId || "",
+});
 
 const normalizeEmergencyContacts = (
   raw?: UserData["emergencyContacts"]
@@ -161,6 +175,11 @@ const DEFAULT_USER_DATA: UserData = {
   VoterId: "PLD9O0401",
   DefPassword: "PLD@8779",
   State: "Sikkim",
+  bloodGroup: "",
+  medicalConditions: "",
+  allergies: "",
+  organDonor: "",
+  insuranceId: "",
   emergencyContacts: [
     { name: "", relationship: "", phone1: "", phone2: "" },
     { name: "", relationship: "", phone1: "", phone2: "" },
@@ -179,6 +198,7 @@ const InputGroup: React.FC<InputGroupProps & { isDarkMode?: boolean }> = ({
   disabled = false,
   isModified = false,
   isDarkMode = false,
+  placeholder = "",
 }) => (
   <div
     className={`flex flex-col space-y-1.5 ${
@@ -199,6 +219,7 @@ const InputGroup: React.FC<InputGroupProps & { isDarkMode?: boolean }> = ({
         value={value || ""}
         onChange={onChange}
         disabled={disabled}
+        placeholder={placeholder}
         className={`
           w-full px-4 py-2.5 rounded-md border text-sm font-medium
           transition-all duration-200 ease-in-out
@@ -290,6 +311,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
   useEffect(() => {
     const normalizedUserData: UserData = {
       ...userData,
+      ...normalizeMedicalProfile(userData),
       emergencyContacts: normalizeEmergencyContacts(userData.emergencyContacts),
     };
     setFormData(normalizedUserData);
@@ -318,19 +340,23 @@ const UserProfile: React.FC<UserProfileProps> = ({
     setEmergencyQRLoading(true);
     setEmergencyStatus({ type: "", message: "" });
     try {
-      const res = await fetch(
-        apiUrl(`/emergency/generate/${encodeURIComponent(formData.ID)}`),
-        { method: "POST" }
-      );
-      if (!res.ok) throw new Error("Emergency token generation failed");
-
+    const target = apiUrl(`/emergency/generate/${encodeURIComponent(formData.ID)}`);
+    console.log(`API: Calling ${target}`);
+      const res = await fetch(target, { method: "POST" });
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        throw new Error(`Generation failed: ${res.status} ${errBody}`);
+      }
+      
       const data = (await res.json()) as EmergencyTokenGenerateResponse;
       const emergencyFullUrl = `${window.location.origin}${data.emergencyUrl}`;
+      console.log(`Success: Registered token ${data.token}`);
 
       setEmergencyTokenUrl(emergencyFullUrl);
       // Backend expiresAt is 72 hours from createdAt; we mirror that locally for UI.
       setEmergencyExpiresAt(Date.now() + 72 * 60 * 60 * 1000);
     } catch (err) {
+      console.error("Emergency generation error:", err);
       setEmergencyStatus({ type: "error", message: "Failed to generate Emergency QR." });
     } finally {
       setEmergencyQRLoading(false);
@@ -339,33 +365,47 @@ const UserProfile: React.FC<UserProfileProps> = ({
 
   async function fetchEmergencyNotifications() {
     if (!formData.ID) return;
+    const target = apiUrl(`/emergency/notifications/${encodeURIComponent(formData.ID)}`);
     try {
-      const res = await fetch(
-        apiUrl(`/emergency/notifications/${encodeURIComponent(formData.ID)}`)
-      );
-      if (!res.ok) throw new Error("Failed to fetch notifications");
-      const notifications = (await res.json()) as EmergencyNotification[];
-      setEmergencyNotifications(notifications);
-      setUnreadEmergencyNotificationsCount(
-        notifications.filter((n) => !n.seenByUser).length
-      );
-    } catch {
-      setEmergencyNotifications([]);
-      setUnreadEmergencyNotificationsCount(0);
+      const res = await fetch(target);
+      if (!res.ok) throw new Error("Fetch notifications failed");
+      const data = await res.json();
+      setEmergencyNotifications(data);
+      setUnreadEmergencyNotificationsCount(data.filter((n: any) => !n.seenByUser).length);
+    } catch (error) {
+       console.error("Notifications fetch fail:", error);
+       setEmergencyNotifications([]);
+       setUnreadEmergencyNotificationsCount(0);
     }
   }
 
   async function handleRegenerateEmergency() {
-    await generateEmergencyTokenAndUrl();
-    setEmergencyStatus({
-      type: "success",
-      message: "Emergency Access QR regenerated successfully.",
-    });
-    await fetchEmergencyNotifications();
+    if (!formData.ID) return;
+    setEmergencyQRLoading(true);
+    setEmergencyStatus({ type: "", message: "" });
+    try {
+      console.log(`API: Revoking old tokens for ${formData.ID}`);
+      await fetch(apiUrl(`/emergency/token/${encodeURIComponent(formData.ID)}`), { method: "DELETE" });
+      
+      console.log("API: Requesting new token");
+      await generateEmergencyTokenAndUrl();
+      
+      setEmergencyStatus({
+        type: "success",
+        message: "Emergency access QR regenerated successfully.",
+      });
+      await fetchEmergencyNotifications();
+    } catch (err) {
+      console.error("Regeneration flow error:", err);
+      setEmergencyStatus({ type: "error", message: "Failed to regenerate QR." });
+    } finally {
+      setEmergencyQRLoading(false);
+    }
   }
 
   async function handleRevokeEmergencyAccess() {
     if (!formData.ID) return;
+    setEmergencyQRLoading(true);
     setEmergencyStatus({ type: "", message: "" });
     try {
       const res = await fetch(
@@ -374,10 +414,13 @@ const UserProfile: React.FC<UserProfileProps> = ({
       );
       if (!res.ok) throw new Error("Revoke failed");
 
-      await generateEmergencyTokenAndUrl();
+      // Wipe current access URL from UI
+      setEmergencyTokenUrl("");
+      setEmergencyExpiresAt(null);
+
       setEmergencyStatus({
         type: "success",
-        message: "Emergency access revoked and a fresh QR has been generated.",
+        message: "Current emergency access revoked successfully.",
       });
       await fetchEmergencyNotifications();
     } catch {
@@ -385,6 +428,8 @@ const UserProfile: React.FC<UserProfileProps> = ({
         type: "error",
         message: "Failed to revoke emergency access.",
       });
+    } finally {
+      setEmergencyQRLoading(false);
     }
   }
 
@@ -496,55 +541,107 @@ const UserProfile: React.FC<UserProfileProps> = ({
     setIsLoading(true);
     setStatus({ type: "", message: "" });
 
-    const changes: Partial<UserData> = {};
-    const keys = Object.keys(formData) as Array<keyof UserData>;
+    const officialKeys = [
+      "FirstName",
+      "LastName",
+      "Aadhaar",
+      "Phone",
+      "State",
+      "DistrictId",
+      "Birthday",
+      "Sex",
+      "FatherName",
+      "MotherName",
+    ];
+    const directKeys = [
+      "bloodGroup",
+      "medicalConditions",
+      "allergies",
+      "organDonor",
+      "insuranceId",
+      "emergencyContacts",
+    ];
 
-    keys.forEach((key) => {
-      if (formData[key] !== initialData[key]) {
-        changes[key] = formData[key] as any; // Allow generic assignment for partial update
+    const officialChanges: any = {};
+    const directChanges: any = {};
+
+    Object.keys(formData).forEach((key) => {
+      const isDirect = directKeys.includes(key);
+      const isOfficial = officialKeys.includes(key);
+
+      if (isDirect || isOfficial) {
+        const current = formData[key as keyof UserData];
+        const initial = initialData[key as keyof UserData];
+
+        // Deep comparison for arrays and nested objects
+        const hasChanged =
+          JSON.stringify(current) !== JSON.stringify(initial);
+
+        if (hasChanged) {
+          if (isDirect) directChanges[key] = current;
+          else officialChanges[key] = current;
+        }
       }
     });
 
-    if (Object.keys(changes).length === 0) {
+    console.log("Save operation started", {
+      identity: formData.ID,
+      officialChanges,
+      directChanges,
+    });
+
+    if (
+      Object.keys(officialChanges).length === 0 &&
+      Object.keys(directChanges).length === 0
+    ) {
       setIsLoading(false);
       return;
     }
 
     try {
-      const response = await fetch(
-        apiUrl(`/updateRequest/${formData.ID}`),
-        {
+      let success = true;
+
+      // 1. Submit Official Change Request (requires approval)
+      if (Object.keys(officialChanges).length > 0) {
+        console.log("API: Submitting official update request", officialChanges);
+        const res = await fetch(apiUrl(`/updateRequest/${formData.ID}`), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(changes),
-        }
+          body: JSON.stringify(officialChanges),
+        });
+        if (!res.ok) success = false;
+      }
 
-        // const response = await fetch(
-        //   apiUrl(`/update/${formData.ID}`),
-        //   {
-        //     method: "PUT",
-        //     headers: { "Content-Type": "application/json" },
-        //     body: JSON.stringify(changes),
-        //   }
-      );
+      // 2. Submit Direct Changes (emergency info - immediate state update)
+      if (Object.keys(directChanges).length > 0) {
+        console.log("API: Submitting direct profile update", directChanges);
+        const res = await fetch(apiUrl(`/update-citizen/${formData.ID}`), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(directChanges),
+        });
+        if (!res.ok) success = false;
+      }
 
-      if (response.ok || response.status === 200) {
+      if (success) {
         setStatus({
           type: "success",
-          message: "Citizen record updated successfully.",
+          message:
+            Object.keys(officialChanges).length > 0
+              ? "Emergency info updated! Official identity changes sent for validation."
+              : "Profile changes saved successfully.",
         });
-        // Update initialData to match formData after successful save
+        // Update initialData to match current formData
         setInitialData({ ...formData });
-        // Hide the footer bar by resetting hasChanges
         setHasChanges(false);
       } else {
-        throw new Error("Failed to update");
+        throw new Error("One or more update steps failed");
       }
     } catch (error) {
-      console.error("Update failed:", error);
+      console.error("Critical: Update failed", error);
       setStatus({
         type: "error",
-        message: "Submission failed. Please check network connection.",
+        message: "Failed to save profile. Please check your network.",
       });
     } finally {
       setIsLoading(false);
@@ -626,7 +723,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
     setIsGeneratingPDF(true);
     try {
       const baseUrl = window.location.origin;
-      await generateIdCardPDF(formData, baseUrl);
+      await generateIdCardPDF(formData, baseUrl, emergencyTokenUrl);
     } catch (err) {
       console.error("PDF generation failed:", err);
       setStatus({ type: "error", message: "Failed to generate ID card PDF." });
@@ -976,7 +1073,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
                     Your UVID
                   </div>
                   <QRCodeSVG
-                    value={formData.ID}
+                    value={`${window.location.origin}/citizen-card/${formData.ID}`}
                     size={140}
                     bgColor="#FFFFFF"
                     fgColor="#000080"
@@ -1210,6 +1307,120 @@ const UserProfile: React.FC<UserProfileProps> = ({
                   isModified={
                     initialData["DistrictId"] !== formData["DistrictId"]
                   }
+                  isDarkMode={isDarkMode}
+                />
+              </div>
+            </div>
+
+            {/* Medical & Emergency Profile */}
+            <div
+              className={`rounded-lg shadow-sm border overflow-hidden transition-colors duration-700 ${
+                isDarkMode
+                  ? "bg-[#0f0f11] border-white/10"
+                  : "bg-white border-slate-200"
+              }`}
+            >
+              <div
+                className={`px-6 py-4 border-b flex items-center justify-between transition-colors duration-700 ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-100 bg-slate-50/50"
+                }`}
+              >
+                <h2
+                  className={`text-sm font-bold uppercase tracking-wide flex items-center gap-2 ${
+                    isDarkMode ? "text-red-400" : "text-[#b91c1c]"
+                  }`}
+                >
+                  <AlertCircle size={18} /> Medical & Emergency Profile
+                </h2>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex flex-col gap-1.5 col-span-1">
+                  <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Blood Group
+                  </label>
+                  <select
+                    name="bloodGroup"
+                    value={(formData.bloodGroup as string) || ""}
+                    onChange={(e) => handleInputChange(e as any)}
+                    className={`px-4 py-2.5 rounded-md border text-sm font-medium transition-all ${
+                      isDarkMode
+                        ? "border-white/10 bg-white/5 text-white"
+                        : "border-slate-300 bg-white text-slate-900"
+                    }`}
+                  >
+                    <option value="">Select Group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5 col-span-1">
+                  <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Organ Donor Status
+                  </label>
+                  <div className="flex items-center gap-4 py-2">
+                    {["Yes", "No"].map((opt) => (
+                      <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="organDonor"
+                          value={opt}
+                          checked={formData.organDonor === opt}
+                          onChange={(e) => handleInputChange(e as any)}
+                          className="w-4 h-4 accent-red-600"
+                        />
+                        <span className={`text-sm font-medium ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <InputGroup
+                    label="Allergies (comma-separated)"
+                    name="allergies"
+                    value={formData.allergies as any}
+                    fullWidth
+                    placeholder="e.g. Penicillin, Pollen, Nuts (leave blank if none)"
+                    onChange={handleInputChange}
+                    isModified={initialData.allergies !== formData.allergies}
+                    isDarkMode={isDarkMode}
+                  />
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <label className={`text-xs font-bold uppercase tracking-wider mb-1.5 block ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Existing Medical Conditions
+                  </label>
+                  <textarea
+                    name="medicalConditions"
+                    value={(formData.medicalConditions as string) || ""}
+                    onChange={(e) => handleInputChange(e as any)}
+                    rows={3}
+                    placeholder="Provide brief details about chronic conditions, or 'None'"
+                    className={`w-full px-4 py-2.5 rounded-md border text-sm font-medium transition-all ${
+                      isDarkMode
+                        ? "border-white/10 bg-white/5 text-white"
+                        : "border-slate-300 bg-white text-slate-900"
+                    }`}
+                  />
+                </div>
+
+                <InputGroup
+                  label="Private Insurance ID"
+                  name="insuranceId"
+                  value={(formData.insuranceId as string) || ""}
+                  icon={Shield}
+                  onChange={handleInputChange}
+                  isModified={initialData.insuranceId !== formData.insuranceId}
                   isDarkMode={isDarkMode}
                 />
               </div>

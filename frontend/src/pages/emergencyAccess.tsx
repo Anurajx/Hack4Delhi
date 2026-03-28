@@ -443,82 +443,92 @@ const EmergencyAccess: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {emergencyContacts.map((c, idx) => {
-              const isPrimary = idx === 0;
-              const badgeClass = isPrimary
-                ? "bg-blue-600 text-white"
-                : "bg-slate-500 text-white";
-              const borderClass = isPrimary
-                ? "border-l-4 border-blue-500"
-                : "border-l-4 border-slate-500";
+            {emergencyContacts.every(c => !c.name && !c.phone1) ? (
+              <div className={`p-8 text-center rounded-xl border border-dashed ${isDarkMode ? "border-white/10 text-slate-500" : "border-slate-300 text-slate-500"}`}>
+                <Phone size={24} className="mx-auto mb-2 opacity-20" />
+                <p className="text-sm font-medium">No emergency contacts added yet</p>
+              </div>
+            ) : (
+              emergencyContacts.map((c, idx) => {
+                // If both name and phone are missing for a slot (especially secondary), skip it unless it's the only one
+                if (!c.name && !c.phone1 && idx > 0) return null;
+                
+                const isPrimary = idx === 0;
+                const badgeClass = isPrimary
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-500 text-white";
+                const borderClass = isPrimary
+                  ? "border-l-4 border-blue-500"
+                  : "border-l-4 border-slate-500";
 
-              const phone1 = c.phone1 || "";
-              const phone2 = c.phone2 || "";
+                const phone1 = c.phone1 || "";
+                const phone2 = c.phone2 || "";
 
-              return (
-                <div
-                  key={idx}
-                  className={`rounded-xl border p-5 ${borderClass} ${
-                    isDarkMode ? "border-white/10" : "border-slate-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-lg font-extrabold">
-                        {c.name || "—"}
+                return (
+                  <div
+                    key={idx}
+                    className={`rounded-xl border p-5 ${borderClass} ${
+                      isDarkMode ? "border-white/10" : "border-slate-200"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-lg font-extrabold">
+                          {c.name || "—"}
+                        </div>
+                        <div className="text-sm text-slate-700">
+                          Relationship: {c.relationship || "—"}
+                        </div>
                       </div>
-                      <div className="text-sm text-slate-700">
-                        Relationship: {c.relationship || "—"}
-                      </div>
-                    </div>
 
-                    <span
-                      className={`text-xs font-extrabold rounded-full px-3 py-1 ${badgeClass}`}
-                    >
-                      {isPrimary ? "Primary Contact" : "Secondary Contact"}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    <div className="space-y-1">
-                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Mobile Number 1
-                      </div>
-                      <a
-                        href={`tel:${phone1}`}
-                        className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white ${
-                          phone1 ? "" : "pointer-events-none opacity-60"
-                        }`}
+                      <span
+                        className={`text-xs font-extrabold rounded-full px-3 py-1 ${badgeClass}`}
                       >
-                        <PhoneCall size={16} />
-                        Call
-                      </a>
-                      <div className="text-sm text-slate-700">
-                        {phone1 || "Not provided"}
-                      </div>
+                        {isPrimary ? "Primary Contact" : "Secondary Contact"}
+                      </span>
                     </div>
 
-                    <div className="space-y-1">
-                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Alternate number
+                    <div className="mt-4 space-y-3">
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                          Mobile Number 1
+                        </div>
+                        <a
+                          href={`tel:${phone1}`}
+                          className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white ${
+                            phone1 ? "" : "pointer-events-none opacity-60"
+                          }`}
+                        >
+                          <PhoneCall size={16} />
+                          Call
+                        </a>
+                        <div className="text-sm text-slate-700">
+                          {phone1 || "Not provided"}
+                        </div>
                       </div>
-                      <a
-                        href={`tel:${phone2}`}
-                        className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white ${
-                          phone2 ? "" : "pointer-events-none opacity-60"
-                        }`}
-                      >
-                        <PhoneCall size={16} />
-                        Call
-                      </a>
-                      <div className={`text-sm ${phone2 ? "text-slate-700" : "text-slate-500"}`}>
-                        {phone2 || "Not provided"}
+
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                          Alternate number
+                        </div>
+                        <a
+                          href={`tel:${phone2}`}
+                          className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white ${
+                            phone2 ? "" : "pointer-events-none opacity-60"
+                          }`}
+                        >
+                          <PhoneCall size={16} />
+                          Call
+                        </a>
+                        <div className={`text-sm ${phone2 ? "text-slate-700" : "text-slate-500"}`}>
+                          {phone2 || "Not provided"}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </section>
 

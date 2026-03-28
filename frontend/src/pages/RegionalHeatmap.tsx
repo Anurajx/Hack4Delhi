@@ -50,135 +50,26 @@ export default function RegionalHeatmap() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch verified voters
-      // Real endpoint: apiUrl("/voters?page=1") (mocking pagination loop for a real app, here just taking page 1 & 2 for sample)
-      const votersRes = await fetch(apiUrl("/voters?page=1")).catch(() => null);
-      let voters = [];
-      if (votersRes && votersRes.ok) {
-        const data = await votersRes.json();
-        voters = Array.isArray(data) ? data : data.voters || [];
-      }
+      const res = await fetch(apiUrl("/api/state-stats"));
+      if (!res.ok) throw new Error("Stats fetch failed");
+      const backendStats = await res.json();
 
-      // 2. Fetch pending registrations (tempVoters)
-      const tempVotersRes = await fetch(apiUrl("/tempVoters")).catch(() => null);
-      let tempVoters = [];
-      if (tempVotersRes && tempVotersRes.ok) {
-        tempVoters = await tempVotersRes.json();
-      }
-
-      // 3. Fetch update requests
-      const updatesRes = await fetch(apiUrl("/updateFetch")).catch(() => null);
-      let updates = [];
-      if (updatesRes && updatesRes.ok) {
-        updates = await updatesRes.json();
-      }
-
-      // Aggregate data client-side
       const aggregated: Record<string, RegionStats> = {};
 
-      // Helper to init region
-      const initRegion = (stateName: string) => {
-        if (!stateName) return;
-        if (!aggregated[stateName]) {
-          aggregated[stateName] = {
-            name: stateName,
-            totalRegistered: 0,
-            pendingApplications: 0,
-            pendingUpdates: 0,
-            linkedCredentials: 0,
-            averageConfidence: 85 + Math.floor(Math.random() * 10), // Mocked avg since real depends on individual UVID calls
-            fraudScore: 0,
-            fraudRisk: 'low',
-            flaggedRecords: 0,
-            recentEvents: []
-          };
-        }
-      };
-
-      voters.forEach((v: any) => {
-        if (v.State) {
-          initRegion(v.State);
-          aggregated[v.State].totalRegistered += 1;
-          aggregated[v.State].linkedCredentials += v.LinkedCredentials ? v.LinkedCredentials.length : Math.floor(Math.random() * 3);
-        }
-      });
-
-      tempVoters.forEach((v: any) => {
-        if (v.State) {
-          initRegion(v.State);
-          aggregated[v.State].pendingApplications += 1;
-        }
-      });
-
-      updates.forEach((u: any) => {
-        // updates might not have State embedded directly if it's just the delta,
-        // but typically it has basic info. Assuming it might have it or we assign randomly for demo.
-        const st = u.State || "Delhi"; 
-        initRegion(st);
-        aggregated[st].pendingUpdates += 1;
-      });
-
-      // Calculate real fraud score based on database statistics
-      Object.keys(aggregated).forEach((stateName) => {
-        const stat = aggregated[stateName];
-        let regionalFraudScore = 0;
-        let flaggedRecords = 0;
-        
-        // 1. Check verified voters for embedded fraud flags
-        voters.forEach((v: any) => {
-          if (v.State === stateName) {
-            if (v.TamperCheckFailed) {
-               regionalFraudScore += 2.0;
-               flaggedRecords += 1;
-               if (!stat.recentEvents.includes("Tamper checks failed recently")) stat.recentEvents.push("Tamper checks failed recently");
-            }
-            if (v.FuzzyMatchRatio > 0.5) {
-               regionalFraudScore += 1.5;
-               flaggedRecords += 1;
-            }
-          }
-        });
-
-        // 2. Check pending applications for fuzzy duplicates / identical Aadhaars
-        const tempVotersInState = tempVoters.filter((v: any) => v.State === stateName);
-        const aadhaarMap: Record<string, number> = {};
-        tempVotersInState.forEach((v: any) => {
-          if (v.Aadhaar) aadhaarMap[v.Aadhaar] = (aadhaarMap[v.Aadhaar] || 0) + 1;
-        });
-        
-        for (const aadhaar in aadhaarMap) {
-          if (aadhaarMap[aadhaar] > 1) {
-            regionalFraudScore += (aadhaarMap[aadhaar] - 1) * 3.0; // Substantial penalty per duplicate
-            flaggedRecords += (aadhaarMap[aadhaar] - 1);
-            if (!stat.recentEvents.includes("Fuzzy duplicate registrations detected")) stat.recentEvents.push("Fuzzy duplicate registrations detected");
-          }
-        }
-
-        // 3. Frequency of profile updates (>3 updates/hour = suspicious)
-        const updatesInState = updates.filter((u: any) => (u.State || "Delhi") === stateName);
-        const userUpdatesMap: Record<string, number> = {};
-        updatesInState.forEach((u: any) => {
-           if (u.ID) userUpdatesMap[u.ID] = (userUpdatesMap[u.ID] || 0) + 1;
-        });
-        
-        for (const userId in userUpdatesMap) {
-          if (userUpdatesMap[userId] >= 3) {
-            regionalFraudScore += 4.0; // High speed velocity fraud
-            flaggedRecords += userUpdatesMap[userId];
-            if (!stat.recentEvents.includes("Suspicious highly frequent profile updates")) stat.recentEvents.push("Suspicious highly frequent profile updates");
-          }
-        }
-
-        // Add minor baseline based on plain volume to keep standard stats scaled
-        if (stat.pendingApplications > 50) regionalFraudScore += 1;
-
-        let finalScore = Math.min(10, Math.max(0, regionalFraudScore));
-        stat.fraudScore = Number(finalScore.toFixed(1));
-        stat.flaggedRecords = flaggedRecords;
-        
-        if (finalScore >= 7) stat.fraudRisk = 'high';
-        else if (finalScore >= 4) stat.fraudRisk = 'medium';
-        else stat.fraudRisk = 'low';
+      backendStats.forEach((s: any) => {
+        const stateName = s.State;
+        aggregated[stateName] = {
+          name: stateName,
+          totalRegistered: s.additions || 0,
+          pendingApplications: s.duplications || 0, // Using duplication count as a proxy or additions
+          pendingUpdates: s.updations || 0,
+          linkedCredentials: s.linkedCredentials || 0,
+          averageConfidence: 85 + Math.floor(Math.random() * 10),
+          fraudScore: s.fraudScore || 0,
+          fraudRisk: s.fraudScore >= 7 ? 'high' : s.fraudScore >= 4 ? 'medium' : 'low',
+          flaggedRecords: s.tamperCount || 0,
+          recentEvents: s.fraudScore >= 4 ? ["Suspicious markers detected in ledger", "High risk verification required"] : []
+        };
       });
 
       // Fallback to SEED_REGIONAL_DATA if empty
