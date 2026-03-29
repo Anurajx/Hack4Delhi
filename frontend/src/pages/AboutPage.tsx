@@ -50,7 +50,7 @@ const AboutPage: React.FC = () => {
     { name: "React / Tailwind", category: "Frontend", icon: <Layers size={20} /> },
     { name: "Node.js / Express", category: "Backend", icon: <Cpu size={20} /> },
     { name: "MongoDB", category: "Database", icon: <Database size={20} /> },
-    { name: "Solidity / Polygon", category: "Blockchain", icon: <Shield size={20} /> },
+    { name: "Solidity / Ethereum", category: "Blockchain", icon: <Shield size={20} /> },
     { name: "ethers.js", category: "Web3", icon: <Zap size={20} /> },
     { name: "Fuzzball", category: "Matching", icon: <Search size={20} /> },
   ];

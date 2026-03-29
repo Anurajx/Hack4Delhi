@@ -7,7 +7,7 @@ const DB = mongoose.createConnection(process.env.MONGO_URI, {
 });
 
 const voterSchema = new mongoose.Schema({}, { strict: false });
-const StateVoter = DB.model("Voter", voterSchema, "voters");
+const StateVoter = DB.model("Voter", voterSchema, "voters"); 1234
 const TempVoter = DB.model("Voter", voterSchema, "tempVotersBLO");
 const UpdateVoter = DB.model("Voter", voterSchema, "toUpdate");
 
@@ -27,7 +27,7 @@ function generateRandomUser(isFraud = false, index = 0) {
   const lName = getRandomItem(lastNames);
   const phone = `9${Math.floor(100000000 + Math.random() * 900000000)}`;
   const aadhaar = `${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)}`;
-  
+
   return {
     ID: `ID${Date.now()}${index}`,
     Aadhaar: aadhaar,
@@ -50,7 +50,7 @@ function generateRandomUser(isFraud = false, index = 0) {
 
 async function seed() {
   console.log("Starting DB seed process...");
-  
+
   try {
     // Optional: Clear existing collections to have exactly 30 users.
     // await StateVoter.deleteMany({});
@@ -60,41 +60,41 @@ async function seed() {
 
     const normalUsers = [];
     for (let i = 0; i < 20; i++) {
-        normalUsers.push(generateRandomUser(false, i));
+      normalUsers.push(generateRandomUser(false, i));
     }
-    
+
     await StateVoter.insertMany(normalUsers);
     console.log(`Inserted 20 normal voters into StateVoter collection.`);
 
     const fraudUsers = [];
     for (let i = 20; i < 30; i++) {
-        fraudUsers.push(generateRandomUser(true, i));
+      fraudUsers.push(generateRandomUser(true, i));
     }
-    
+
     await StateVoter.insertMany(fraudUsers);
-    
+
     const suspiciousUpdates = [];
     fraudUsers.forEach((f, idx) => {
       // Create 4 rapid updates for each fraud user to simulate >3 updates/hour
-      for(let j=0; j<4; j++) {
+      for (let j = 0; j < 4; j++) {
         suspiciousUpdates.push({
-            ...f,
-            UpdateReason: "Address Change Simulation",
-            Timestamp: Date.now() - (j * 1000 * 60), // minutes apart
-            _id: new mongoose.Types.ObjectId() // Generate fresh _id to avoid dup key error
+          ...f,
+          UpdateReason: "Address Change Simulation",
+          Timestamp: Date.now() - (j * 1000 * 60), // minutes apart
+          _id: new mongoose.Types.ObjectId() // Generate fresh _id to avoid dup key error
         });
       }
     });
 
     await UpdateVoter.insertMany(suspiciousUpdates);
-    
+
     const duplicateApplications = [];
     fraudUsers.forEach((f, idx) => {
       if (idx % 2 === 0) {
         // Submit identical Aadhaar applications to tempVotersBLO with slightly changed name (fuzzy duplicates)
         duplicateApplications.push({
           ...f,
-          FirstName: f.FirstName + "x", 
+          FirstName: f.FirstName + "x",
           _id: new mongoose.Types.ObjectId(),
           ID: `ID${Date.now()}DUP1`
         });
@@ -112,7 +112,7 @@ async function seed() {
     console.log(`Inserted 10 fraud voters.`);
     console.log(`Simulated ${suspiciousUpdates.length} suspicious update requests.`);
     console.log(`Simulated ${duplicateApplications.length} fuzzy duplicate registrations.`);
-    
+
     console.log("Seeding complete. Exiting...");
   } catch (err) {
     console.error("Seeding error:", err);
